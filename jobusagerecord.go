@@ -75,22 +75,11 @@ type JobUsageRecord struct {
 	RecordIdentity recordIdentity
 	JobIdentity    jobIdentity
 	UserIdentity   userIdentity
-	Charge         field
-	Status         string
-	WallDuration   string
 	CpuDuration    []cpuDuration
-	NodeCount      field
-	Processors     field
 	StartTime      time.Time
 	EndTime        time.Time
-	MachineName    field
-	SiteName       field
-	SubmitHost     string
-	ProjectName    string
-	Memory         field
 	Resource       []resource
-	ProbeName      string
-	Grid           string
+	Fields         []field `xml:",any"`
 }
 
 func (jur *JobUsageRecord) asMap() map[string]string {
@@ -104,28 +93,14 @@ func (jur *JobUsageRecord) asMap() map[string]string {
 		"VOName":           jur.UserIdentity.VOName,
 		"ReportableVOName": jur.UserIdentity.ReportableVOName,
 		"CommonName":       jur.UserIdentity.CommonName,
-		"Status":           jur.Status,
-		"WallDuration":     jur.WallDuration,
 	}
 
-	for k, v := range jur.Charge.flatten() {
-		r[k] = v
+	for _, f := range jur.Fields {
+		for k, v := range f.flatten() {
+			r[k] = v
+		}
 	}
-	for k, v := range jur.NodeCount.flatten() {
-		r[k] = v
-	}
-	for k, v := range jur.Processors.flatten() {
-		r[k] = v
-	}
-	for k, v := range jur.MachineName.flatten() {
-		r[k] = v
-	}
-	for k, v := range jur.SiteName.flatten() {
-		r[k] = v
-	}
-	for k, v := range jur.Memory.flatten() {
-		r[k] = v
-	}
+
 	for _, res := range jur.Resource {
 		for k, v := range res.flatten() {
 			r[k] = v
