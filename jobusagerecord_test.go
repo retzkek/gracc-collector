@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 	"testing"
 )
 
@@ -15,18 +14,18 @@ func TestJURUnmarshal(t *testing.T) {
 	if j, err := json.MarshalIndent(v, "", "    "); err != nil {
 		t.Error(err)
 	} else {
-		fmt.Printf("%s", j)
+		t.Logf("%s", j)
 	}
 
-	fmt.Printf("\n---\n")
+	t.Logf("\n---\n")
 
 	if j, err := json.MarshalIndent(v.asMap(), "", "    "); err != nil {
 		t.Error(err)
 	} else {
-		fmt.Printf("%s", j)
+		t.Logf("%s", j)
 	}
 
-	fmt.Printf("\n\n")
+	t.Logf("\n\n")
 }
 
 var testRecord = `
