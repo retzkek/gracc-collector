@@ -19,7 +19,7 @@ func TestJURUnmarshal(t *testing.T) {
 
 	t.Logf("\n---\n")
 
-	if j, err := json.MarshalIndent(v.asMap(), "", "    "); err != nil {
+	if j, err := json.MarshalIndent(v.flatten(), "", "    "); err != nil {
 		t.Error(err)
 	} else {
 		t.Logf("%s", j)

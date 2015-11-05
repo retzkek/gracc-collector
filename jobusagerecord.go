@@ -82,7 +82,7 @@ type JobUsageRecord struct {
 	Fields         []field `xml:",any"`
 }
 
-func (jur *JobUsageRecord) asMap() map[string]string {
+func (jur *JobUsageRecord) flatten() map[string]string {
 	var r = map[string]string{
 		"RecordId":         jur.RecordIdentity.RecordId,
 		"CreateTime":       jur.RecordIdentity.CreateTime.String(),
