@@ -17,6 +17,16 @@ func TestJURUnmarshal(t *testing.T) {
 	} else {
 		fmt.Printf("%s", j)
 	}
+
+	fmt.Printf("\n---\n")
+
+	if j, err := json.MarshalIndent(v.asMap(), "", "    "); err != nil {
+		t.Error(err)
+	} else {
+		fmt.Printf("%s", j)
+	}
+
+	fmt.Printf("\n\n")
 }
 
 var testRecord = `
