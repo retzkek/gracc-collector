@@ -7,7 +7,7 @@ import (
 
 const (
 	HOST = ""
-	PORT = "8888"
+	PORT = "8080"
 )
 
 func main() {

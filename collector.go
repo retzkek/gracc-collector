@@ -15,6 +15,11 @@ type GratiaCollector struct {
 
 func (g GratiaCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	log.Errorf("recieved unknown request %v", r.Form["command"])
+	if len(r.Form["command"]) == 0 {
+		log.Errorf("recieved unknown request %v", r)
+		return
+	}
 	command := r.Form["command"][0]
 	if command == "update" {
 		updateLogger := log.WithFields(log.Fields{
@@ -72,7 +77,7 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 		return err
 	}
 
-	if j, err := json.MarshalIndent(v.flatten(), "", "    "); err != nil {
+	if j, err := json.MarshalIndent(v.Flatten(), "", "    "); err != nil {
 		return err
 	} else {
 		log.Infof("%s", j)

@@ -82,7 +82,8 @@ type JobUsageRecord struct {
 	Fields         []field `xml:",any"`
 }
 
-func (jur *JobUsageRecord) flatten() map[string]string {
+// Flatten returns a flattened map of the Record.
+func (jur *JobUsageRecord) Flatten() map[string]string {
 	var r = map[string]string{
 		"RecordId":         jur.RecordIdentity.RecordId,
 		"CreateTime":       jur.RecordIdentity.CreateTime.String(),
@@ -93,16 +94,18 @@ func (jur *JobUsageRecord) flatten() map[string]string {
 		"VOName":           jur.UserIdentity.VOName,
 		"ReportableVOName": jur.UserIdentity.ReportableVOName,
 		"CommonName":       jur.UserIdentity.CommonName,
-	}
-
-	for _, f := range jur.Fields {
-		for k, v := range f.flatten() {
-			r[k] = v
-		}
+		"StartTime":        jur.StartTime.String(),
+		"EndTime":          jur.EndTime.String(),
 	}
 
 	for _, res := range jur.Resource {
 		for k, v := range res.flatten() {
+			r[k] = v
+		}
+	}
+
+	for _, f := range jur.Fields {
+		for k, v := range f.flatten() {
 			r[k] = v
 		}
 	}
