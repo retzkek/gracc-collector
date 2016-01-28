@@ -15,32 +15,58 @@ type GratiaCollector struct {
 
 func (g GratiaCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
-	log.Errorf("recieved unknown request %v", r.Form["command"])
-	if len(r.Form["command"]) == 0 {
-		log.Errorf("recieved unknown request %v", r)
+	if g.checkRequiredKeys(w, r, []string{"command"}) != nil {
 		return
 	}
-	command := r.Form["command"][0]
-	if command == "update" {
-		updateLogger := log.WithFields(log.Fields{
-			"from": r.Form["from"][0],
-		})
-		if r.Form["arg1"][0] == "xxx" {
-			updateLogger.Info("received test request")
+	command := r.FormValue("command")
+	switch command {
+	case "update":
+		g.handleUpdate(w, r)
+	default:
+		g.handleError(w, r, "unknown command")
+	}
+}
+
+func (g GratiaCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
+	if g.checkRequiredKeys(w, r, []string{"arg1", "from"}) != nil {
+		return
+	}
+	updateLogger := log.WithFields(log.Fields{
+		"from": r.FormValue("from"),
+	})
+	if r.FormValue("arg1") == "xxx" {
+		updateLogger.Info("received test request")
+		fmt.Fprintf(w, "OK")
+	} else {
+		if g.checkRequiredKeys(w, r, []string{"bundlesize"}) != nil {
+			return
+		}
+		if err := g.ProcessBundle(r.FormValue("arg1"), r.FormValue("bundlesize")); err == nil {
+			updateLogger.Info("received update")
 			fmt.Fprintf(w, "OK")
 		} else {
-			updateLogger.Info("received update")
-			if err := g.ProcessBundle(r.Form["arg1"][0], r.Form["bundlesize"][0]); err == nil {
-				fmt.Fprintf(w, "OK")
-			} else {
-				updateLogger.Error("error processing bundle")
-				updateLogger.Error(err)
-				fmt.Fprintf(w, "Error")
-			}
+			g.handleError(w, r, "error processing bundle")
+			log.Debug(err)
+			return
 		}
-	} else {
-		log.Error("received unrecognized or misformed request")
 	}
+}
+
+func (g GratiaCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Request, keys []string) error {
+	for _, k := range keys {
+		if r.FormValue(k) == "" {
+			err := fmt.Sprintf("no %v", k)
+			g.handleError(w, r, err)
+			return fmt.Errorf(err)
+		}
+	}
+	return nil
+}
+
+func (g GratiaCollector) handleError(w http.ResponseWriter, r *http.Request, err string) {
+	log.WithField("error", err).Errorf("recieved unknown or misformed request")
+	log.Debug(r)
+	fmt.Fprintf(w, "Error")
 }
 
 func (g *GratiaCollector) ProcessBundle(bundle string, bundlesize string) error {
@@ -80,7 +106,7 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 	if j, err := json.MarshalIndent(v.Flatten(), "", "    "); err != nil {
 		return err
 	} else {
-		log.Infof("%s", j)
+		log.Debugf("%s", j)
 	}
 
 	return nil
