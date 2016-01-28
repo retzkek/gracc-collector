@@ -5,12 +5,26 @@ import (
 	"encoding/xml"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	elastic "gopkg.in/olivere/elastic.v3"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 type GratiaCollector struct {
+	Client *elastic.Client
+	Index  string
+}
+
+func NewCollector(esHost string, esIndex string) (*GratiaCollector, error) {
+	var g GratiaCollector
+	client, err := elastic.NewClient(elastic.SetURL(esHost))
+	if err != nil {
+		return nil, err
+	}
+	g.Client = client
+	g.Index = esIndex
+	return &g, nil
 }
 
 func (g GratiaCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -107,6 +121,10 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 		return err
 	} else {
 		log.Debugf("%s", j)
+		_, err := g.Client.Index().Index(g.Index).Type("JobUsageRecord").BodyString(string(j[:])).Do()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

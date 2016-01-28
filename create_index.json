@@ -1,0 +1,49 @@
+{
+    "mappings": {
+        "JobUsageRecord": {
+            "properties": {
+                "Charge": {
+                    "type": "float"
+                },
+                "CreateTime": {
+                    "type": "date"
+                },
+                "StartTime": {
+                    "type": "date"
+                },
+                "EndTime": {
+                    "type": "date"
+                },
+                "CpuSystemDuration": {
+                    "type": "float"
+                },
+                "CpuUserDuration": {
+                    "type": "float"
+                },
+                "Memory": {
+                    "type": "float"
+                },
+                "NodeCount": {
+                    "type": "integer"
+                },
+                "Processors": {
+                    "type": "integer"
+                },
+                "WallDuration": {
+                    "type": "float"
+                }
+            },
+            "dynamic_templates": [
+                { "notanalyzed": {
+                         "match":              "*", 
+                         "match_mapping_type": "string",
+                         "mapping": {
+                             "type":        "string",
+                             "index":       "not_analyzed"
+                         }
+                     }
+                }
+            ]
+        }
+    }
+}

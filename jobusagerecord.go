@@ -88,7 +88,7 @@ type JobUsageRecord struct {
 func (jur *JobUsageRecord) Flatten() map[string]string {
 	var r = map[string]string{
 		"RecordId":         jur.RecordIdentity.RecordId,
-		"CreateTime":       jur.RecordIdentity.CreateTime.String(),
+		"CreateTime":       jur.RecordIdentity.CreateTime.Format(time.RFC3339),
 		"GlobalJobId":      jur.JobIdentity.GlobalJobId,
 		"LocalJobId":       jur.JobIdentity.LocalJobId,
 		"GlobalUsername":   jur.UserIdentity.GlobalUsername,
@@ -96,8 +96,8 @@ func (jur *JobUsageRecord) Flatten() map[string]string {
 		"VOName":           jur.UserIdentity.VOName,
 		"ReportableVOName": jur.UserIdentity.ReportableVOName,
 		"CommonName":       jur.UserIdentity.CommonName,
-		"StartTime":        jur.StartTime.String(),
-		"EndTime":          jur.EndTime.String(),
+		"StartTime":        jur.StartTime.Format(time.RFC3339),
+		"EndTime":          jur.EndTime.Format(time.RFC3339),
 	}
 
 	for _, res := range jur.Resource {

@@ -6,12 +6,17 @@ import (
 )
 
 const (
-	HOST = ""
-	PORT = "8080"
+	HOST     = ""
+	PORT     = "8080"
+	ES_HOST  = "http://fermicloud080.fnal.gov:9200"
+	ES_INDEX = "gratia-test2"
 )
 
 func main() {
-	var g GratiaCollector
+	g, err := NewCollector(ES_HOST, ES_INDEX)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	http.Handle("/gratia-servlets/rmi", g)
 
