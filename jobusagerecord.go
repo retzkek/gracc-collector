@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/xml"
+	"fmt"
+	duration "github.com/channelmeter/iso8601duration"
 	"time"
 )
 
@@ -117,5 +119,19 @@ func (jur *JobUsageRecord) Flatten() map[string]string {
 			r["CpuSystemDuration"] = c.Value
 		}
 	}
+
+	r["CpuUserDuration"] = convertDurationToSeconds(r["CpuUserDuration"])
+	r["CpuSystemDuration"] = convertDurationToSeconds(r["CpuSystemDuration"])
+	r["WallDuration"] = convertDurationToSeconds(r["WallDuration"])
+
 	return r
+}
+
+func convertDurationToSeconds(dur string) string {
+	d, err := duration.FromString(dur)
+	if err != nil {
+		return dur
+	}
+	sec := d.ToDuration().Seconds()
+	return fmt.Sprintf("%.0f", sec)
 }
