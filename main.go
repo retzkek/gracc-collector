@@ -1,19 +1,32 @@
 package main
 
 import (
+	"flag"
 	log "github.com/Sirupsen/logrus"
 	"net/http"
 )
 
-const (
-	HOST     = ""
-	PORT     = "8080"
-	ES_HOST  = "http://fermicloud080.fnal.gov:9200"
-	ES_INDEX = "gratia-test2"
+var (
+	configFile string
 )
 
+func init() {
+	flag.StringVar(&configFile, "c", "gratia.cfg", "config file")
+}
+
 func main() {
-	g, err := NewCollector(ES_HOST, ES_INDEX)
+	flag.Parse()
+
+	log.WithFields(log.Fields{
+		"file": configFile,
+	}).Info("reading config")
+
+	config, err := ReadConfig(configFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	g, err := NewCollector(config.Elasticsearch.Host, config.Elasticsearch.Index)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -21,9 +34,9 @@ func main() {
 	http.Handle("/gratia-servlets/rmi", g)
 
 	log.WithFields(log.Fields{
-		"host": HOST,
-		"port": PORT,
+		"address": config.Address,
+		"port":    config.Port,
 	}).Info("listening")
 
-	log.Fatal(http.ListenAndServe(HOST+":"+PORT, nil))
+	log.Fatal(http.ListenAndServe(config.Address+":"+config.Port, nil))
 }
