@@ -13,6 +13,7 @@ type config struct {
 	Address       string
 	Port          string
 	Elasticsearch esConfig
+	LogLevel      string
 }
 
 func ReadConfig(file string) (*config, error) {

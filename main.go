@@ -17,15 +17,23 @@ func init() {
 func main() {
 	flag.Parse()
 
-	log.WithFields(log.Fields{
-		"file": configFile,
-	}).Info("reading config")
-
+	log.WithField("file", configFile).Info("reading config")
 	config, err := ReadConfig(configFile)
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	log.WithField("level", config.LogLevel).Info("setting log level")
+	logLevel, err := log.ParseLevel(config.LogLevel)
+	if err != nil {
+		log.Fatal(err)
+	}
+	log.SetLevel(logLevel)
+
+	log.WithFields(log.Fields{
+		"host":  config.Elasticsearch.Host,
+		"index": config.Elasticsearch.Index,
+	}).Info("starting elasticsearch collector")
 	g, err := NewCollector(config.Elasticsearch.Host, config.Elasticsearch.Index)
 	if err != nil {
 		log.Fatal(err)
