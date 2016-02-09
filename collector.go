@@ -118,9 +118,9 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 	}
 
 	if j, err := json.MarshalIndent(v.Flatten(), "", "    "); err != nil {
+		log.Debugf("%s", x)
 		return err
 	} else {
-		log.Debugf("%s", j)
 		_, err := g.Client.Index().Index(g.Index).Type("JobUsageRecord").BodyString(string(j[:])).Do()
 		if err != nil {
 			return err
