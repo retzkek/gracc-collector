@@ -24,7 +24,74 @@ func NewCollector(esHost string, esIndex string) (*GratiaCollector, error) {
 	}
 	g.Client = client
 	g.Index = esIndex
+	if err = g.CreateIndex(); err != nil {
+		return nil, err
+	}
 	return &g, nil
+}
+
+func (g GratiaCollector) CreateIndex() error {
+	const createBody = `
+{
+    "mappings": {
+        "JobUsageRecord": {
+            "properties": {
+                "Charge": {
+                    "type": "float"
+                },
+                "CreateTime": {
+                    "type": "date"
+                },
+                "StartTime": {
+                    "type": "date"
+                },
+                "EndTime": {
+                    "type": "date"
+                },
+                "CpuSystemDuration": {
+                    "type": "float"
+                },
+                "CpuUserDuration": {
+                    "type": "float"
+                },
+                "Memory": {
+                    "type": "float"
+                },
+                "NodeCount": {
+                    "type": "integer"
+                },
+                "Processors": {
+                    "type": "integer"
+                },
+                "WallDuration": {
+                    "type": "float"
+                }
+            },
+            "dynamic_templates": [
+                { "notanalyzed": {
+                         "match":              "*", 
+                         "match_mapping_type": "string",
+                         "mapping": {
+                             "type":        "string",
+                             "index":       "not_analyzed"
+                         }
+                     }
+                }
+            ]
+        }
+    }
+}`
+	exists, err := g.Client.IndexExists(g.Index).Do()
+	if err != nil {
+		return err
+	}
+	if !exists {
+		_, err := g.Client.CreateIndex(g.Index).Body(createBody).Do()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (g GratiaCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
