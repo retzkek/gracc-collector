@@ -4,6 +4,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	duration "github.com/channelmeter/iso8601duration"
+	"strings"
 	"time"
 )
 
@@ -67,9 +68,17 @@ type resource struct {
 
 func (r *resource) flatten() map[string]string {
 	var rr = map[string]string{
-		r.Description: r.Value,
+		strings.Map(mapForKey, r.Description): r.Value,
 	}
 	return rr
+}
+
+func mapForKey(c rune) rune {
+	switch c {
+	case '.':
+		return '_'
+	}
+	return c
 }
 
 type JobUsageRecord struct {
