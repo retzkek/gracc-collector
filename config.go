@@ -4,25 +4,25 @@ import (
 	"github.com/BurntSushi/toml"
 )
 
-type esConfig struct {
-	Host  string
-	Index string
+type kafkaConfig struct {
+	Brokers []string
+	Topic   string
 }
 
 type config struct {
-	Address       string
-	Port          string
-	Elasticsearch esConfig
-	LogLevel      string
+	Address  string
+	Port     string
+	Kafka    kafkaConfig
+	LogLevel string
 }
 
 func ReadConfig(file string) (*config, error) {
 	var conf = config{
 		Address: "",
 		Port:    "8080",
-		Elasticsearch: esConfig{
-			Host:  "localhost",
-			Index: "gratia",
+		Kafka: kafkaConfig{
+			Brokers: []string{"localhost:9092"},
+			Topic:   "gratia",
 		},
 		LogLevel: "info",
 	}
