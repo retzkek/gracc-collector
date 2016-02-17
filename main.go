@@ -31,10 +31,10 @@ func main() {
 	log.SetLevel(logLevel)
 
 	log.WithFields(log.Fields{
-		"host":  config.Elasticsearch.Host,
-		"index": config.Elasticsearch.Index,
-	}).Info("starting elasticsearch collector")
-	g, err := NewCollector(config.Elasticsearch.Host, config.Elasticsearch.Index)
+		"brokers": config.Kafka.Brokers,
+		"topic":   config.Kafka.Topic,
+	}).Info("starting kafka collector")
+	g, err := NewCollector(config.Kafka.Brokers, config.Kafka.Topic)
 	if err != nil {
 		log.Fatal(err)
 	}

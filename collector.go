@@ -4,94 +4,27 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
-	elastic "gopkg.in/olivere/elastic.v3"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
 type GratiaCollector struct {
-	Client *elastic.Client
-	Index  string
+	Producer sarama.SyncProducer
+	Topic    string
 }
 
-func NewCollector(esHost string, esIndex string) (*GratiaCollector, error) {
+func NewCollector(kafkaBrokers []string, kafkaTopic string) (*GratiaCollector, error) {
 	var g GratiaCollector
-	client, err := elastic.NewClient(elastic.SetURL(esHost))
+	producer, err := sarama.NewSyncProducer(kafkaBrokers, nil)
 	if err != nil {
 		return nil, err
 	}
-	g.Client = client
-	g.Index = esIndex
-	if err = g.CreateIndex(); err != nil {
-		return nil, err
-	}
+	g.Producer = producer
+	g.Topic = kafkaTopic
 	return &g, nil
-}
-
-func (g GratiaCollector) CreateIndex() error {
-	const createBody = `
-{
-    "mappings": {
-        "JobUsageRecord": {
-            "properties": {
-                "Charge": {
-                    "type": "float"
-                },
-                "CreateTime": {
-                    "type": "date"
-                },
-                "StartTime": {
-                    "type": "date"
-                },
-                "EndTime": {
-                    "type": "date"
-                },
-                "CpuSystemDuration": {
-                    "type": "float"
-                },
-                "CpuUserDuration": {
-                    "type": "float"
-                },
-                "Memory": {
-                    "type": "float"
-                },
-                "NodeCount": {
-                    "type": "integer"
-                },
-                "Processors": {
-                    "type": "integer"
-                },
-                "WallDuration": {
-                    "type": "float"
-                }
-            },
-            "dynamic_templates": [
-                { "notanalyzed": {
-                         "match":              "*", 
-                         "match_mapping_type": "string",
-                         "mapping": {
-                             "type":        "string",
-                             "index":       "not_analyzed"
-                         }
-                     }
-                }
-            ]
-        }
-    }
-}`
-	exists, err := g.Client.IndexExists(g.Index).Do()
-	if err != nil {
-		return err
-	}
-	if !exists {
-		_, err := g.Client.CreateIndex(g.Index).Body(createBody).Do()
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (g GratiaCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -188,7 +121,8 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 		log.Debugf("%s", x)
 		return err
 	} else {
-		_, err := g.Client.Index().Index(g.Index).Type("JobUsageRecord").BodyString(string(j[:])).Do()
+		msg := &sarama.ProducerMessage{Topic: g.Topic, Value: sarama.ByteEncoder(j)}
+		_, _, err := g.Producer.SendMessage(msg)
 		if err != nil {
 			return err
 		}
