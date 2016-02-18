@@ -132,6 +132,7 @@ func (jur *JobUsageRecord) Flatten() map[string]string {
 	r["CpuUserDuration"] = convertDurationToSeconds(r["CpuUserDuration"])
 	r["CpuSystemDuration"] = convertDurationToSeconds(r["CpuSystemDuration"])
 	r["WallDuration"] = convertDurationToSeconds(r["WallDuration"])
+	r["TimeDuration"] = convertDurationToSeconds(r["TimeDuration"])
 
 	return r
 }
