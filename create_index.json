@@ -31,6 +31,9 @@
                 },
                 "WallDuration": {
                     "type": "float"
+                },
+                "TimeDuration": {
+                    "type": "float"
                 }
             },
             "dynamic_templates": [
