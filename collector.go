@@ -56,7 +56,7 @@ func (g GratiaCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := g.ProcessBundle(r.FormValue("arg1"), r.FormValue("bundlesize")); err == nil {
-			updateLogger.Info("received update")
+			updateLogger.WithField("size", r.FormValue("bundlesize")).Info("received update")
 			fmt.Fprintf(w, "OK")
 		} else {
 			g.handleError(w, r, "error processing bundle")
