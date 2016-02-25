@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
-	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
 	"net/http"
 	"strconv"
@@ -12,18 +11,14 @@ import (
 )
 
 type GratiaCollector struct {
-	Producer sarama.SyncProducer
-	Topic    string
+	Path   string
+	Format string
 }
 
-func NewCollector(kafkaBrokers []string, kafkaTopic string) (*GratiaCollector, error) {
+func NewCollector(path string, format string) (*GratiaCollector, error) {
 	var g GratiaCollector
-	producer, err := sarama.NewSyncProducer(kafkaBrokers, nil)
-	if err != nil {
-		return nil, err
-	}
-	g.Producer = producer
-	g.Topic = kafkaTopic
+	g.Path = path
+	g.Format = format
 	return &g, nil
 }
 
@@ -84,6 +79,7 @@ func (g GratiaCollector) handleError(w http.ResponseWriter, r *http.Request, err
 }
 
 func (g *GratiaCollector) ProcessBundle(bundle string, bundlesize string) error {
+	fmt.Print(bundle)
 	size, err := strconv.Atoi(bundlesize)
 	if err != nil {
 		return err
@@ -113,20 +109,32 @@ func (g *GratiaCollector) ProcessBundle(bundle string, bundlesize string) error 
 
 func (g *GratiaCollector) ProcessXml(x string) error {
 	var v JobUsageRecord
-	if err := xml.Unmarshal([]byte(x), &v); err != nil {
+	xb := []byte(x)
+	if err := xml.Unmarshal(xb, &v); err != nil {
 		return err
 	}
 
-	if j, err := json.MarshalIndent(v.Flatten(), "", "    "); err != nil {
-		log.Debugf("%s", x)
-		return err
-	} else {
-		msg := &sarama.ProducerMessage{Topic: g.Topic, Value: sarama.ByteEncoder(j)}
-		_, _, err := g.Producer.SendMessage(msg)
-		if err != nil {
+	switch g.Format {
+	case "xml":
+		if err := dumpToFile("foo", xb); err != nil {
+			log.Debugf("error writing xml: %s", x)
 			return err
 		}
+	case "json":
+		if j, err := json.MarshalIndent(v.Flatten(), "", "    "); err != nil {
+			log.Debugf("error converting JobUsageRecord to json: %s", x)
+			return err
+		} else {
+			if err := dumpToFile("foo", j); err != nil {
+				log.Debugf("error writing json: %s", x)
+				return err
+			}
+		}
 	}
+	return nil
+}
 
+func dumpToFile(filename string, contents []byte) error {
+	log.WithField("file", filename).Debugf("writing to file: %s", contents)
 	return nil
 }

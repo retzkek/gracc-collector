@@ -30,11 +30,8 @@ func main() {
 	}
 	log.SetLevel(logLevel)
 
-	log.WithFields(log.Fields{
-		"brokers": config.Kafka.Brokers,
-		"topic":   config.Kafka.Topic,
-	}).Info("starting kafka collector")
-	g, err := NewCollector(config.Kafka.Brokers, config.Kafka.Topic)
+	log.Info("starting collector")
+	g, err := NewCollector(config.Path, config.Format)
 	if err != nil {
 		log.Fatal(err)
 	}
