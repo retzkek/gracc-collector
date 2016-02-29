@@ -79,7 +79,8 @@ func (g GratiaCollector) handleError(w http.ResponseWriter, r *http.Request, err
 }
 
 func (g *GratiaCollector) ProcessBundle(bundle string, bundlesize string) error {
-	fmt.Print(bundle)
+	//fmt.Println("---+++---")
+	//fmt.Print(bundle)
 	size, err := strconv.Atoi(bundlesize)
 	if err != nil {
 		return err
@@ -135,6 +136,6 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 }
 
 func dumpToFile(filename string, contents []byte) error {
-	log.WithField("file", filename).Debugf("writing to file: %s", contents)
+	log.WithField("filename", filename).Debug("writing record to file")
 	return nil
 }
