@@ -1,23 +1,34 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"hash/fnv"
 	"net/http"
+	"os"
+	"path"
 	"strconv"
 	"strings"
+	"text/template"
 )
 
 type GratiaCollector struct {
-	Path   string
-	Format string
+	Path         string
+	PathTemplate *template.Template
+	Format       string
 }
 
 func NewCollector(path string, format string) (*GratiaCollector, error) {
 	var g GratiaCollector
 	g.Path = path
+	var err error
+	g.PathTemplate, err = template.New("path").Parse(path)
+	if err != nil {
+		return nil, err
+	}
 	g.Format = format
 	return &g, nil
 }
@@ -115,9 +126,19 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 		return err
 	}
 
+	var path bytes.Buffer
+	// generate path for record from template
+	if err := g.PathTemplate.Execute(&path, v); err != nil {
+		return err
+	}
+	// hash record ID to create file name and append to path
+	h := fnv.New32()
+	h.Write([]byte(v.RecordIdentity.RecordId))
+	fmt.Fprintf(&path, "%x.%s", h.Sum32(), g.Format)
+
 	switch g.Format {
 	case "xml":
-		if err := dumpToFile("foo", xb); err != nil {
+		if err := dumpToFile(path.String(), xb); err != nil {
 			log.Debugf("error writing xml: %s", x)
 			return err
 		}
@@ -126,7 +147,7 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 			log.Debugf("error converting JobUsageRecord to json: %s", x)
 			return err
 		} else {
-			if err := dumpToFile("foo", j); err != nil {
+			if err := dumpToFile(path.String(), j); err != nil {
 				log.Debugf("error writing json: %s", x)
 				return err
 			}
@@ -135,7 +156,23 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 	return nil
 }
 
-func dumpToFile(filename string, contents []byte) error {
+func dumpToFile(filepath string, contents []byte) error {
+	dirname := path.Dir(filepath)
+	filename := path.Base(filepath)
+	log.WithField("path", dirname).Debug("creating directory")
+	if err := os.MkdirAll(dirname, 0755); err != nil {
+		return err
+	}
 	log.WithField("filename", filename).Debug("writing record to file")
-	return nil
+	f, err := os.Create(filepath)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	n, err := f.Write(contents)
+	log.WithFields(log.Fields{
+		"filename": filepath,
+		"bytes":    n,
+	}).Info("wrote record to file")
+	return err
 }
