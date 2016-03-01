@@ -237,15 +237,26 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 }
 
 func (g *GratiaCollector) RecordToFile(jur *JobUsageRecord) error {
-	var path bytes.Buffer
+	var basePath, filename bytes.Buffer
+	var filePath string
 	// generate path for record from template
-	if err := g.PathTemplate.Execute(&path, jur); err != nil {
+	if err := g.PathTemplate.Execute(&basePath, jur); err != nil {
 		return err
 	}
 	// hash record ID to create file name and append to path
 	h := fnv.New32()
-	h.Write([]byte(jur.RecordIdentity.RecordId))
-	fmt.Fprintf(&path, "%x.%s", h.Sum32(), g.Config.File.Format)
+	for {
+		// keep writing to hash until unique filename is obtained
+		h.Write([]byte(jur.RecordIdentity.RecordId))
+		fmt.Fprintf(&filename, "%x.%s", h.Sum32(), g.Config.File.Format)
+		filePath = path.Join(basePath.String(), filename.String())
+		if _, err := os.Stat(filePath); os.IsNotExist(err) {
+			// file (or directory) doesn't exist; it will be created later
+			break
+		}
+		log.WithField("filename", filename.String()).Debug("file exists, adding to hash")
+		filename.Reset()
+	}
 
 	switch g.Config.File.Format {
 	case "xml":
@@ -254,7 +265,7 @@ func (g *GratiaCollector) RecordToFile(jur *JobUsageRecord) error {
 			log.Debugf("%v", jur)
 			return err
 		} else {
-			if err := dumpToFile(path.String(), j); err != nil {
+			if err := dumpToFile(filePath, j); err != nil {
 				log.Error("error writing xml to file")
 				return err
 			}
@@ -265,7 +276,7 @@ func (g *GratiaCollector) RecordToFile(jur *JobUsageRecord) error {
 			log.Debugf("%v", jur)
 			return err
 		} else {
-			if err := dumpToFile(path.String(), j); err != nil {
+			if err := dumpToFile(filePath, j); err != nil {
 				log.Error("error writing json to file")
 				return err
 			}
@@ -282,7 +293,7 @@ func dumpToFile(filepath string, contents []byte) error {
 		return err
 	}
 	log.WithField("filename", filename).Debug("writing record to file")
-	f, err := os.Create(filepath)
+	f, err := os.OpenFile(filepath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
 	if err != nil {
 		return err
 	}
