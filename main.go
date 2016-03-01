@@ -109,9 +109,9 @@ MainLoop:
 					log.SetOutput(flog)
 				}
 			case syscall.SIGUSR2:
-				// toggle debug/info log level
-				if log.GetLevel() == log.DebugLevel {
-					log.SetLevel(log.InfoLevel)
+				// toggle log level between debug and config option
+				if log.GetLevel() != logLevel {
+					log.SetLevel(logLevel)
 				} else {
 					log.SetLevel(log.DebugLevel)
 				}
