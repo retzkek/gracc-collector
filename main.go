@@ -30,8 +30,9 @@ func main() {
 	}
 	log.SetLevel(logLevel)
 
-	log.Info("starting collector")
-	g, err := NewCollector(config.Path, config.Format)
+	log.Info("initializing collector")
+	logConfig(config)
+	g, err := NewCollector(config)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -41,7 +42,34 @@ func main() {
 	log.WithFields(log.Fields{
 		"address": config.Address,
 		"port":    config.Port,
-	}).Info("listening")
+	}).Info("starting HTTP server")
 
 	log.Fatal(http.ListenAndServe(config.Address+":"+config.Port, nil))
+}
+
+func logConfig(config *CollectorConfig) {
+	if config.File.Enabled {
+		log.WithFields(log.Fields{
+			"path":   config.File.Path,
+			"format": config.File.Format,
+		}).Info("file output enabled")
+	} else {
+		log.Info("file output diabled")
+	}
+	if config.Elasticsearch.Enabled {
+		log.WithFields(log.Fields{
+			"host":  config.Elasticsearch.Host,
+			"index": config.Elasticsearch.Index,
+		}).Info("elasticsearch output enabled")
+	} else {
+		log.Info("elasticsearch output disabled")
+	}
+	if config.Kafka.Enabled {
+		log.WithFields(log.Fields{
+			"brokers": config.Kafka.Brokers,
+			"topic":   config.Kafka.Topic,
+		}).Info("kafka output enabled")
+	} else {
+		log.Info("kafka output disabled")
+	}
 }
