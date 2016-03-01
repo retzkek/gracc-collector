@@ -5,6 +5,8 @@ import (
 	log "github.com/Sirupsen/logrus"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 )
 
 // build parameters
@@ -28,18 +30,20 @@ func main() {
 	flag.Parse()
 
 	// need to set log output first, since we log everything else
+	var flog *os.File
+	var err error
 	switch logFile {
 	case "stdout":
 		log.SetOutput(os.Stdout)
 	case "stderr":
 		log.SetOutput(os.Stdout)
 	default:
-		f, err := os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0664)
+		flog, err = os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0664)
 		if err != nil {
 			log.Fatal(err)
 		}
-		defer f.Close()
-		log.SetOutput(f)
+		defer flog.Close()
+		log.SetOutput(flog)
 		//log.SetFormatter(&log.JSONFormatter{})
 		log.SetFormatter(&log.TextFormatter{DisableColors: true})
 	}
@@ -77,7 +81,36 @@ func main() {
 		"port":    config.Port,
 	}).Info("starting HTTP server")
 	http.Handle("/gratia-servlets/rmi", g)
-	log.Fatal(http.ListenAndServe(config.Address+":"+config.Port, nil))
+	go http.ListenAndServe(config.Address+":"+config.Port, nil)
+
+	// loop to catch signals
+	signals := make(chan os.Signal, 1)
+	signal.Notify(signals)
+MainLoop:
+	for {
+		select {
+		case s := <-signals:
+			log.WithField("signal", s).Debug("got signal")
+			switch s {
+			case os.Interrupt, syscall.SIGTERM:
+				// terminate
+				log.WithField("signal", s).Info("exiting")
+				break MainLoop
+			case syscall.SIGUSR1, syscall.SIGHUP:
+				// refresh log file
+				if flog != nil {
+					log.WithField("signal", s).Info("closing log")
+					flog.Close()
+					flog, err = os.OpenFile(logFile, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0664)
+					if err != nil {
+						log.Fatal(err)
+					}
+					defer flog.Close()
+					log.SetOutput(flog)
+				}
+			}
+		}
+	}
 }
 
 func logConfig(config *CollectorConfig) {
