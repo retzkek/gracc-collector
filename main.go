@@ -7,6 +7,13 @@ import (
 	"os"
 )
 
+// build parameters
+var (
+	buildDate string
+	commit    string
+)
+
+// flags
 var (
 	configFile string
 	logFile    string
@@ -36,6 +43,11 @@ func main() {
 		//log.SetFormatter(&log.JSONFormatter{})
 		log.SetFormatter(&log.TextFormatter{DisableColors: true})
 	}
+
+	log.WithFields(log.Fields{
+		"build":  buildDate,
+		"commit": commit,
+	}).Info("gratia2")
 
 	log.WithField("file", configFile).Info("reading config")
 	config, err := ReadConfig(configFile)
