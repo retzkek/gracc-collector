@@ -108,6 +108,17 @@ MainLoop:
 					defer flog.Close()
 					log.SetOutput(flog)
 				}
+			case syscall.SIGUSR2:
+				// toggle debug/info log level
+				if log.GetLevel() == log.DebugLevel {
+					log.SetLevel(log.InfoLevel)
+				} else {
+					log.SetLevel(log.DebugLevel)
+				}
+				log.WithFields(log.Fields{
+					"signal": s,
+					"level":  log.GetLevel().String(),
+				}).Info("changing log level")
 			}
 		}
 	}
