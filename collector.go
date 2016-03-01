@@ -291,7 +291,7 @@ func dumpToFile(filepath string, contents []byte) error {
 	log.WithFields(log.Fields{
 		"filename": filepath,
 		"bytes":    n,
-	}).Info("wrote record to file")
+	}).Debug("wrote record to file")
 	return err
 }
 
