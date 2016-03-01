@@ -10,7 +10,13 @@ func init() {
 }
 
 func TestProcessBundle(t *testing.T) {
-	g, err := NewCollector(testPath, "xml")
+	g, err := NewCollector(&CollectorConfig{
+		File: fileConfig{
+			Enabled: true,
+			Path:    testPath,
+			Format:  "xml",
+		},
+	})
 	if err != nil {
 		t.Error(err)
 	}
