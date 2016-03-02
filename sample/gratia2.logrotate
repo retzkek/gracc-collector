@@ -1,0 +1,11 @@
+/opt/gratia2/log/gratia.log {
+    create 0644 gratia gratia
+    daily
+    rotate 10
+    missingok
+    notifempty
+    compress
+    postrotate
+        systemctl kill --signal=USR1  gratia2.service
+    endscript
+}
