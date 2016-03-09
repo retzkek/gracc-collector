@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
-	"github.com/retzkek/gratia2"
+	gracc "github.com/gracc-project/gracc-go"
 	elastic "gopkg.in/olivere/elastic.v3"
 	"hash/fnv"
 	"net/http"
@@ -213,7 +213,7 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize string) error {
 }
 
 func (g *GraccCollector) ProcessXml(x string) error {
-	var jur gratia2.JobUsageRecord
+	var jur gracc.JobUsageRecord
 	xb := []byte(x)
 	if err := xml.Unmarshal(xb, &jur); err != nil {
 		return err
@@ -237,7 +237,7 @@ func (g *GraccCollector) ProcessXml(x string) error {
 	return nil
 }
 
-func (g *GraccCollector) RecordToFile(jur *gratia2.JobUsageRecord) error {
+func (g *GraccCollector) RecordToFile(jur *gracc.JobUsageRecord) error {
 	var basePath, filename bytes.Buffer
 	var filePath string
 	// generate path for record from template
@@ -307,7 +307,7 @@ func dumpToFile(filepath string, contents []byte) error {
 	return err
 }
 
-func (g *GraccCollector) RecordToElasticsearch(jur *gratia2.JobUsageRecord) error {
+func (g *GraccCollector) RecordToElasticsearch(jur *gracc.JobUsageRecord) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")
 		log.Debugf("%v", jur)
@@ -325,7 +325,7 @@ func (g *GraccCollector) RecordToElasticsearch(jur *gratia2.JobUsageRecord) erro
 	return nil
 }
 
-func (g *GraccCollector) RecordToKafka(jur *gratia2.JobUsageRecord) error {
+func (g *GraccCollector) RecordToKafka(jur *gracc.JobUsageRecord) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")
 		log.Debugf("%v", jur)

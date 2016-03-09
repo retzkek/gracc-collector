@@ -1,4 +1,4 @@
-# gratia2 collector
+# GRÅCC - Gratia-Compatible Collector
 
 This is an all-new implementation of the [Open Science Grid](http://www.opensciencegrid.org) 
 [Gratia](https://sourceforge.net/projects/gratia/) accounting collector. It is intended
@@ -21,7 +21,7 @@ The config file is [TOML](https://github.com/toml-lang/toml) format.
     
     [file]
     enabled = true       # output records to file, one record per file
-    path = '/tmp/gratia/{{.RecordIdentity.CreateTime.Format "2006/01/02/15/04"}}/'
+    path = '/tmp/gracc/{{.RecordIdentity.CreateTime.Format "2006/01/02/15/04"}}/'
                          # path is the directory to create files in, supports dynamic naming based on 
                          # templated attributes of the Record. 
                          # Reference time: Mon Jan 2 15:04:05 -0700 MST 2006 
@@ -30,28 +30,28 @@ The config file is [TOML](https://github.com/toml-lang/toml) format.
     [elasticsearch]
     enabled = true                   # output records to Elasticsearch
     host = "http://localhost:9200"   # Elasticsearch URL
-    index = "gratia-test"            # index
+    index = "gracc-test"             # index
     
     [kafka]
     enabled = true                   # output records to Kafka
     brokers = ["localhost:9092"]     # list of brokers
-    topic = "gratia-osg"             # topic
+    topic = "gracc-osg"              # topic
 
 ## Usage
 
-    gratia2-collector -c <config file> -l <log file>
+    gracc -c <config file> -l <log file>
 
 Where `<log file>` can be "stdout", "stderr", or a file name.
 
-See `sample/gratia.service` for a sample systemd unit configuration. Copy the file (with 
+See `sample/gracc.service` for a sample systemd unit configuration. Copy the file (with 
 appropriate changes) to `/usr/lib/systemd/system/` then use standard systemd commands to
 control the process.
 
-* Start: `systemctl start gratia2.service`
-* Stop:  `systemctl stop gratia2.service`
-* Restart:  `systemctl restart gratia2.service`
-* Refresh log file:  `systemctl kill --signal=SIGUSR1 gratia2.service`
-* Toggle debug logging:  `systemctl kill --signal=SIGUSR2 gratia2.service`
+* Start: `systemctl start gracc.service`
+* Stop:  `systemctl stop gracc.service`
+* Restart:  `systemctl restart gracc.service`
+* Refresh log file:  `systemctl kill --signal=SIGUSR1 gracc.service`
+* Toggle debug logging:  `systemctl kill --signal=SIGUSR2 gracc.service`
 
-See `sample/gratia2.logrotate` for a sample logrotate configuration. Copy the file (with
-appropriate changes) to `/etc/logrotate.d/gratia2`.
+See `sample/gracc.logrotate` for a sample logrotate configuration. Copy the file (with
+appropriate changes) to `/etc/logrotate.d/gracc`.

@@ -44,12 +44,12 @@ func ReadConfig(file string) (*CollectorConfig, error) {
 		Elasticsearch: esConfig{
 			Enabled: false,
 			Host:    "localhost",
-			Index:   "gratia",
+			Index:   "gracc",
 		},
 		Kafka: kafkaConfig{
 			Enabled: false,
 			Brokers: []string{"localhost:9092"},
-			Topic:   "gratia",
+			Topic:   "gracc",
 		},
 	}
 	if _, err := toml.DecodeFile(file, &conf); err != nil {

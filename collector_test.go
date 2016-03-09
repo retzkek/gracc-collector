@@ -26,7 +26,7 @@ func TestProcessBundle(t *testing.T) {
 }
 
 // Reference time: Mon Jan 2 15:04:05 -0700 MST 2006
-var testPath = `/tmp/gratia/{{.RecordIdentity.CreateTime.Format "2006/01/02/15"}}/`
+var testPath = `/tmp/gracc/{{.RecordIdentity.CreateTime.Format "2006/01/02/15"}}/`
 
 var testBundle = `replication|<JobUsageRecord xmlns="http://www.gridforum.org/2003/ur-wg"
 		xmlns:urwg="http://www.gridforum.org/2003/ur-wg"

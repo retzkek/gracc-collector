@@ -23,7 +23,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&configFile, "c", "gratia.cfg", "config file")
+	flag.StringVar(&configFile, "c", "gracc.cfg", "config file")
 	flag.StringVar(&logFile, "l", "stderr", "log file: stdout, stderr, or file name")
 }
 
@@ -53,7 +53,7 @@ func main() {
 		"version": build_ver,
 		"build":   build_date,
 		"ref":     build_ref,
-	}).Info("gråcc")
+	}).Info("GRÅCC")
 
 	log.WithField("file", configFile).Info("reading config")
 	config, err := ReadConfig(configFile)

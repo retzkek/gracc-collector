@@ -1,0 +1,17 @@
+[Unit]
+Description=GRÅCC Gratia-Compatible Collector
+Documentation=https://github.com/gracc-project/gracc
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=gracc
+Group=gracc
+Type=simple
+Restart=on-failure
+WorkingDirectory=/opt/gracc
+ExecStart=/opt/gracc/gracc-collector -c /opt/gracc/gracc.cfg -l /opt/gracc/log/gracc.log
+TimeoutStopSec=20
+
+[Install]
+aantedBy=multi-user.target
