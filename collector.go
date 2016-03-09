@@ -18,7 +18,7 @@ import (
 	"text/template"
 )
 
-type GratiaCollector struct {
+type GraccCollector struct {
 	Config *CollectorConfig
 	// file
 	PathTemplate *template.Template
@@ -28,9 +28,9 @@ type GratiaCollector struct {
 	Producer sarama.SyncProducer
 }
 
-// NewCollector initializes and returns a new Gratia collector.
-func NewCollector(conf *CollectorConfig) (*GratiaCollector, error) {
-	var g GratiaCollector
+// NewCollector initializes and returns a new Gracc collector.
+func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
+	var g GraccCollector
 	g.Config = conf
 
 	var err error
@@ -62,7 +62,7 @@ func NewCollector(conf *CollectorConfig) (*GratiaCollector, error) {
 }
 
 // CreateIndex initializes the Elasticsearch index, if it doesn't already exist.
-func (g GratiaCollector) CreateIndex() error {
+func (g GraccCollector) CreateIndex() error {
 	const createBody = `
 {
     "mappings": {
@@ -126,7 +126,7 @@ func (g GratiaCollector) CreateIndex() error {
 	return nil
 }
 
-func (g GratiaCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (g GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	if g.checkRequiredKeys(w, r, []string{"command"}) != nil {
 		return
@@ -140,7 +140,7 @@ func (g GratiaCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g GratiaCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
+func (g GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if g.checkRequiredKeys(w, r, []string{"arg1", "from"}) != nil {
 		return
 	}
@@ -165,7 +165,7 @@ func (g GratiaCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g GratiaCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Request, keys []string) error {
+func (g GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Request, keys []string) error {
 	for _, k := range keys {
 		if r.FormValue(k) == "" {
 			err := fmt.Sprintf("no %v", k)
@@ -176,13 +176,13 @@ func (g GratiaCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Reques
 	return nil
 }
 
-func (g GratiaCollector) handleError(w http.ResponseWriter, r *http.Request, err string) {
+func (g GraccCollector) handleError(w http.ResponseWriter, r *http.Request, err string) {
 	log.WithField("error", err).Errorf("recieved unknown or misformed request")
 	log.Debug(r)
 	fmt.Fprintf(w, "Error")
 }
 
-func (g *GratiaCollector) ProcessBundle(bundle string, bundlesize string) error {
+func (g *GraccCollector) ProcessBundle(bundle string, bundlesize string) error {
 	//fmt.Println("---+++---")
 	//fmt.Print(bundle)
 	size, err := strconv.Atoi(bundlesize)
@@ -212,7 +212,7 @@ func (g *GratiaCollector) ProcessBundle(bundle string, bundlesize string) error 
 	return nil
 }
 
-func (g *GratiaCollector) ProcessXml(x string) error {
+func (g *GraccCollector) ProcessXml(x string) error {
 	var jur gratia2.JobUsageRecord
 	xb := []byte(x)
 	if err := xml.Unmarshal(xb, &jur); err != nil {
@@ -237,7 +237,7 @@ func (g *GratiaCollector) ProcessXml(x string) error {
 	return nil
 }
 
-func (g *GratiaCollector) RecordToFile(jur *gratia2.JobUsageRecord) error {
+func (g *GraccCollector) RecordToFile(jur *gratia2.JobUsageRecord) error {
 	var basePath, filename bytes.Buffer
 	var filePath string
 	// generate path for record from template
@@ -307,7 +307,7 @@ func dumpToFile(filepath string, contents []byte) error {
 	return err
 }
 
-func (g *GratiaCollector) RecordToElasticsearch(jur *gratia2.JobUsageRecord) error {
+func (g *GraccCollector) RecordToElasticsearch(jur *gratia2.JobUsageRecord) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")
 		log.Debugf("%v", jur)
@@ -325,7 +325,7 @@ func (g *GratiaCollector) RecordToElasticsearch(jur *gratia2.JobUsageRecord) err
 	return nil
 }
 
-func (g *GratiaCollector) RecordToKafka(jur *gratia2.JobUsageRecord) error {
+func (g *GraccCollector) RecordToKafka(jur *gratia2.JobUsageRecord) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")
 		log.Debugf("%v", jur)

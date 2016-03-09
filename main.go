@@ -11,8 +11,9 @@ import (
 
 // build parameters
 var (
-	buildDate string
-	commit    string
+	build_ver  = "0.01.04"
+	build_date = "???"
+	build_ref  = "scratch"
 )
 
 // flags
@@ -49,9 +50,10 @@ func main() {
 	}
 
 	log.WithFields(log.Fields{
-		"build":  buildDate,
-		"commit": commit,
-	}).Info("gratia2")
+		"version": build_ver,
+		"build":   build_date,
+		"ref":     build_ref,
+	}).Info("gråcc")
 
 	log.WithField("file", configFile).Info("reading config")
 	config, err := ReadConfig(configFile)
