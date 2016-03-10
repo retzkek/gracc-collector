@@ -9,9 +9,11 @@ func init() {
 	log.SetLevel(log.DebugLevel)
 }
 
-func TestProcessBundle(t *testing.T) {
+func TestProcessBundle_File(t *testing.T) {
+	// Reference time: Mon Jan 2 15:04:05 -0700 MST 2006
+	var testPath = `/tmp/gracc.test/{{.RecordIdentity.CreateTime.Format "2006/01/02/15"}}/`
 	g, err := NewCollector(&CollectorConfig{
-		File: fileConfig{
+		File: FileConfig{
 			Enabled: true,
 			Path:    testPath,
 			Format:  "xml",
@@ -24,9 +26,6 @@ func TestProcessBundle(t *testing.T) {
 		t.Error(err)
 	}
 }
-
-// Reference time: Mon Jan 2 15:04:05 -0700 MST 2006
-var testPath = `/tmp/gracc/{{.RecordIdentity.CreateTime.Format "2006/01/02/15"}}/`
 
 var testBundle = `replication|<JobUsageRecord xmlns="http://www.gridforum.org/2003/ur-wg"
 		xmlns:urwg="http://www.gridforum.org/2003/ur-wg"

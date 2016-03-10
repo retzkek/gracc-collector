@@ -5,6 +5,7 @@ run:
 	go build -ldflags "-X main.buildDate=`date -u +%Y%m%d.%H%M%S`" -o gracc.run && ./gracc.run; rm -f gracc.run
 
 test:
+	rm -rf /tmp/gracc.test
 	go test -v
 
 clean:
