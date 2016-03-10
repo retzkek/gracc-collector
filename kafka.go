@@ -29,6 +29,18 @@ func InitKafka(conf KafkaConfig) (*KafkaOutput, error) {
 	return k, nil
 }
 
+func (k *KafkaOutput) Type() string {
+	return "kafka"
+}
+
+func (k *KafkaOutput) StartBatch() error {
+	return nil
+}
+
+func (k *KafkaOutput) EndBatch() error {
+	return nil
+}
+
 func (k *KafkaOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")

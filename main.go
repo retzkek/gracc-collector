@@ -151,4 +151,14 @@ func logConfig(config *CollectorConfig) {
 	} else {
 		log.Info("kafka output disabled")
 	}
+	if config.AMQP.Enabled {
+		log.WithFields(log.Fields{
+			"host":  config.AMQP.Host,
+			"port":  config.AMQP.Port,
+			"vhost": config.AMQP.Vhost,
+			"user":  config.AMQP.User,
+		}).Info("AMQP output enabled")
+	} else {
+		log.Info("AMQP output disabled")
+	}
 }

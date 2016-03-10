@@ -42,6 +42,18 @@ func InitElasticsearch(conf ElasticsearchConfig) (*ElasticsearchOutput, error) {
 	return e, nil
 }
 
+func (e *ElasticsearchOutput) Type() string {
+	return "elasticsearch"
+}
+
+func (e *ElasticsearchOutput) StartBatch() error {
+	return nil
+}
+
+func (e *ElasticsearchOutput) EndBatch() error {
+	return nil
+}
+
 func (e *ElasticsearchOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")

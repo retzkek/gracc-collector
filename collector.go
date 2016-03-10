@@ -12,6 +12,13 @@ import (
 )
 
 type GraccOutput interface {
+	// Type returns the type of the output.
+	Type() string
+	// StartBatch performs any setup needed to handle a batch of records.
+	StartBatch() error
+	// EndBatch performs any cleanup needed after sending a batch of records.
+	EndBatch() error
+	// OutputJUR sends a JobUsageRecord to the output
 	OutputJUR(*gracc.JobUsageRecord) error
 }
 
@@ -123,8 +130,14 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize string) error {
 		return err
 	}
 
-	received := 0
+	// prepare outputs
+	for _, o := range g.Outputs {
+		if err := o.StartBatch(); err != nil {
+			log.WithField("output", o.Type()).Error("error starting output batch")
+		}
+	}
 
+	received := 0
 	parts := strings.Split(bundle, "|")
 	for i := 0; i < len(parts); i++ {
 		//fmt.Printf("--- %d ----\n%s---\n\n", i, p)
@@ -139,6 +152,14 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize string) error {
 			i += 2
 		}
 	}
+
+	// clean up outputs
+	for _, o := range g.Outputs {
+		if err := o.EndBatch(); err != nil {
+			log.WithField("output", o.Type()).Error("error ending output batch")
+		}
+	}
+
 	if received != size {
 		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", len(parts)-1, size)
 	}

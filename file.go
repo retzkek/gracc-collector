@@ -35,6 +35,18 @@ func InitFile(conf FileConfig) (*FileOutput, error) {
 	return f, nil
 }
 
+func (f *FileOutput) Type() string {
+	return "file"
+}
+
+func (f *FileOutput) StartBatch() error {
+	return nil
+}
+
+func (f *FileOutput) EndBatch() error {
+	return nil
+}
+
 func (f *FileOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
 	var basePath, filename bytes.Buffer
 	var filePath string
