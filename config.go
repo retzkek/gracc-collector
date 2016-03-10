@@ -35,10 +35,13 @@ func ReadConfig(file string) (*CollectorConfig, error) {
 			Topic:   "gracc",
 		},
 		AMQP: AMQPConfig{
-			Enabled: false,
-			Host:    "localhost",
-			Port:    "5672",
-			Format:  "rawxml",
+			Enabled:    false,
+			Host:       "localhost",
+			Port:       "5672",
+			Format:     "rawxml",
+			Durable:    false,
+			AutoDelete: true,
+			Exclusive:  true,
 		},
 	}
 	if _, err := toml.DecodeFile(file, &conf); err != nil {

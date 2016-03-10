@@ -133,7 +133,10 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize string) error {
 	// prepare outputs
 	for _, o := range g.Outputs {
 		if err := o.StartBatch(); err != nil {
-			log.WithField("output", o.Type()).Error("error starting output batch")
+			log.WithFields(log.Fields{
+				"output": o.Type(),
+				"error":  err,
+			}).Error("error starting output batch")
 		}
 	}
 
@@ -156,7 +159,10 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize string) error {
 	// clean up outputs
 	for _, o := range g.Outputs {
 		if err := o.EndBatch(); err != nil {
-			log.WithField("output", o.Type()).Error("error ending output batch")
+			log.WithFields(log.Fields{
+				"output": o.Type(),
+				"error":  err,
+			}).Error("error ending output batch")
 		}
 	}
 

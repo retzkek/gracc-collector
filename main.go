@@ -153,10 +153,12 @@ func logConfig(config *CollectorConfig) {
 	}
 	if config.AMQP.Enabled {
 		log.WithFields(log.Fields{
-			"host":  config.AMQP.Host,
-			"port":  config.AMQP.Port,
-			"vhost": config.AMQP.Vhost,
-			"user":  config.AMQP.User,
+			"host":     config.AMQP.Host,
+			"port":     config.AMQP.Port,
+			"vhost":    config.AMQP.Vhost,
+			"queue":    config.AMQP.Queue,
+			"exchange": config.AMQP.Exchange,
+			"user":     config.AMQP.User,
 		}).Info("AMQP output enabled")
 	} else {
 		log.Info("AMQP output disabled")
