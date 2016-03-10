@@ -8,6 +8,7 @@ import (
 	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
 	gracc "github.com/gracc-project/gracc-go"
+	"github.com/streadway/amqp"
 	elastic "gopkg.in/olivere/elastic.v3"
 	"hash/fnv"
 	"net/http"
@@ -19,50 +20,92 @@ import (
 )
 
 type GraccCollector struct {
-	Config *CollectorConfig
-	// file
+	Config  *CollectorConfig
+	Outputs []GraccOutput
+}
+
+type GraccOutput interface {
+	OutputJUR(*gracc.JobUsageRecord) error
+}
+
+type FileOutput struct {
+	Config       fileConfig
 	PathTemplate *template.Template
-	// elasticsearch
+}
+
+type ElasticsearchOutput struct {
+	Config esConfig
 	Client *elastic.Client
-	// kafka
+}
+
+type KafkaOutput struct {
+	Config   kafkaConfig
 	Producer sarama.SyncProducer
+}
+
+type AMQPOutput struct {
+	Config     amqpConfig
+	Connection *amqp.Connection
 }
 
 // NewCollector initializes and returns a new Gracc collector.
 func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 	var g GraccCollector
 	g.Config = conf
+	g.Outputs = make([]GraccOutput, 0, 4)
 
 	var err error
 	if conf.File.Enabled {
-		g.PathTemplate, err = template.New("path").Parse(conf.File.Path)
-		if err != nil {
+		var f *FileOutput
+		if f, err = InitFile(conf.File); err != nil {
 			return nil, err
 		}
+		g.Outputs = append(g.Outputs, f)
 	}
 	if conf.Elasticsearch.Enabled {
-		// initialize elasticsearch client
-		g.Client, err = elastic.NewClient(elastic.SetURL(conf.Elasticsearch.Host))
-		if err != nil {
+		var e *ElasticsearchOutput
+		if e, err = InitElasticsearch(conf.Elasticsearch); err != nil {
 			return nil, err
 		}
-		// create index
-		if err = g.CreateIndex(); err != nil {
-			return nil, err
-		}
+		g.Outputs = append(g.Outputs, e)
 	}
 	if conf.Kafka.Enabled {
-		g.Producer, err = sarama.NewSyncProducer(conf.Kafka.Brokers, nil)
-		if err != nil {
+		var k *KafkaOutput
+		if k, err = InitKafka(conf.Kafka); err != nil {
 			return nil, err
 		}
+		g.Outputs = append(g.Outputs, k)
+	}
+	if conf.AMQP.Enabled {
+		var a *AMQPOutput
+		if a, err = InitAMQP(conf.AMQP); err != nil {
+			return nil, err
+		}
+		g.Outputs = append(g.Outputs, a)
 	}
 
 	return &g, nil
 }
 
-// CreateIndex initializes the Elasticsearch index, if it doesn't already exist.
-func (g GraccCollector) CreateIndex() error {
+func InitFile(conf fileConfig) (*FileOutput, error) {
+	var f = &FileOutput{Config: conf}
+	var err error
+	f.PathTemplate, err = template.New("path").Parse(conf.Path)
+	if err != nil {
+		return nil, err
+	}
+	return f, nil
+}
+
+func InitElasticsearch(conf esConfig) (*ElasticsearchOutput, error) {
+	var e = &ElasticsearchOutput{Config: conf}
+	var err error
+	log.WithField("host", conf.Host).Info("initializing Elasticsearch client")
+	e.Client, err = elastic.NewClient(elastic.SetURL(conf.Host))
+	if err != nil {
+		return nil, err
+	}
+
 	const createBody = `
 {
     "mappings": {
@@ -113,17 +156,44 @@ func (g GraccCollector) CreateIndex() error {
         }
     }
 }`
-	exists, err := g.Client.IndexExists(g.Config.Elasticsearch.Index).Do()
+	exists, err := e.Client.IndexExists(conf.Index).Do()
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if !exists {
-		_, err := g.Client.CreateIndex(g.Config.Elasticsearch.Index).Body(createBody).Do()
+		log.WithField("inde", conf.Index).Info("creating mapping for Elasticsearch index")
+		_, err := e.Client.CreateIndex(conf.Index).Body(createBody).Do()
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
-	return nil
+	return e, nil
+}
+
+func InitKafka(conf kafkaConfig) (*KafkaOutput, error) {
+	var k = &KafkaOutput{Config: conf}
+	var err error
+	log.WithField("brokers", conf.Brokers).Info("initializing Kafka producer")
+	if k.Producer, err = sarama.NewSyncProducer(conf.Brokers, nil); err != nil {
+		return nil, err
+	}
+	return k, nil
+}
+
+func InitAMQP(conf amqpConfig) (*AMQPOutput, error) {
+	var a = &AMQPOutput{Config: conf}
+	url := "amqp://" + conf.User + ":" + conf.Password + "@" +
+		conf.Host + ":" + conf.Port + "/" + conf.Vhost
+	log.WithFields(log.Fields{
+		"user": conf.User,
+		"host": conf.Host,
+		"port": conf.Port,
+	}).Info("connecting to RabbitMQ")
+	var err error
+	if a.Connection, err = amqp.Dial(url); err != nil {
+		return nil, err
+	}
+	return a, nil
 }
 
 func (g GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -218,30 +288,19 @@ func (g *GraccCollector) ProcessXml(x string) error {
 	if err := xml.Unmarshal(xb, &jur); err != nil {
 		return err
 	}
-	if g.Config.File.Enabled {
-		if err := g.RecordToFile(&jur); err != nil {
+	for _, o := range g.Outputs {
+		if err := o.OutputJUR(&jur); err != nil {
 			return err
 		}
 	}
-	if g.Config.Elasticsearch.Enabled {
-		if err := g.RecordToElasticsearch(&jur); err != nil {
-			return err
-		}
-	}
-	if g.Config.Kafka.Enabled {
-		if err := g.RecordToKafka(&jur); err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
-func (g *GraccCollector) RecordToFile(jur *gracc.JobUsageRecord) error {
+func (f *FileOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
 	var basePath, filename bytes.Buffer
 	var filePath string
 	// generate path for record from template
-	if err := g.PathTemplate.Execute(&basePath, jur); err != nil {
+	if err := f.PathTemplate.Execute(&basePath, jur); err != nil {
 		return err
 	}
 	// hash record ID to create file name and append to path
@@ -249,7 +308,7 @@ func (g *GraccCollector) RecordToFile(jur *gracc.JobUsageRecord) error {
 	for {
 		// keep writing to hash until unique filename is obtained
 		h.Write([]byte(jur.RecordIdentity.RecordId))
-		fmt.Fprintf(&filename, "%x.%s", h.Sum32(), g.Config.File.Format)
+		fmt.Fprintf(&filename, "%x.%s", h.Sum32(), f.Config.Format)
 		filePath = path.Join(basePath.String(), filename.String())
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {
 			// file (or directory) doesn't exist; it will be created later
@@ -259,7 +318,7 @@ func (g *GraccCollector) RecordToFile(jur *gracc.JobUsageRecord) error {
 		filename.Reset()
 	}
 
-	switch g.Config.File.Format {
+	switch f.Config.Format {
 	case "xml":
 		if j, err := xml.MarshalIndent(jur, "", "    "); err != nil {
 			log.Error("error converting JobUsageRecord to xml")
@@ -307,14 +366,14 @@ func dumpToFile(filepath string, contents []byte) error {
 	return err
 }
 
-func (g *GraccCollector) RecordToElasticsearch(jur *gracc.JobUsageRecord) error {
+func (e *ElasticsearchOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")
 		log.Debugf("%v", jur)
 		return err
 	} else {
-		_, err := g.Client.Index().
-			Index(g.Config.Elasticsearch.Index).
+		_, err := e.Client.Index().
+			Index(e.Config.Index).
 			Type("JobUsageRecord").
 			BodyString(string(j[:])).
 			Do()
@@ -325,17 +384,21 @@ func (g *GraccCollector) RecordToElasticsearch(jur *gracc.JobUsageRecord) error 
 	return nil
 }
 
-func (g *GraccCollector) RecordToKafka(jur *gracc.JobUsageRecord) error {
+func (k *KafkaOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")
 		log.Debugf("%v", jur)
 		return err
 	} else {
-		msg := &sarama.ProducerMessage{Topic: g.Config.Kafka.Topic, Value: sarama.ByteEncoder(j)}
-		_, _, err := g.Producer.SendMessage(msg)
+		msg := &sarama.ProducerMessage{Topic: k.Config.Topic, Value: sarama.ByteEncoder(j)}
+		_, _, err := k.Producer.SendMessage(msg)
 		if err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func (a *AMQPOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
+	return fmt.Errorf("not implemented")
 }

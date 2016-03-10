@@ -55,3 +55,21 @@ control the process.
 
 See `sample/gracc.logrotate` for a sample logrotate configuration. Copy the file (with
 appropriate changes) to `/etc/logrotate.d/gracc`.
+
+## Versions
+
+### v0.01.04
+
+Add option to write records to RabbitMQ.
+
+### v0.01.03
+
+Add option to write records to file.
+
+### v0.01.02
+
+Add option to send records to Kafka topic.
+
+### v0.01.01
+
+Initial dev version, send records to Elasticsearch.
