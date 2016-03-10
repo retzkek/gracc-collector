@@ -8,38 +8,10 @@ type CollectorConfig struct {
 	Address       string
 	Port          string
 	LogLevel      string
-	File          fileConfig
-	Elasticsearch esConfig
-	Kafka         kafkaConfig
-	AMQP          amqpConfig
-}
-
-type fileConfig struct {
-	Enabled bool
-	Path    string
-	Format  string
-}
-
-type esConfig struct {
-	Enabled bool
-	Host    string
-	Index   string
-}
-
-type kafkaConfig struct {
-	Enabled bool
-	Brokers []string
-	Topic   string
-}
-
-type amqpConfig struct {
-	Enabled  bool
-	Host     string
-	Port     string
-	Vhost    string
-	User     string
-	Password string
-	Format   string
+	File          FileConfig
+	Elasticsearch ElasticsearchConfig
+	Kafka         KafkaConfig
+	AMQP          AMQPConfig
 }
 
 func ReadConfig(file string) (*CollectorConfig, error) {
@@ -47,22 +19,22 @@ func ReadConfig(file string) (*CollectorConfig, error) {
 		Address:  "",
 		Port:     "8080",
 		LogLevel: "info",
-		File: fileConfig{
+		File: FileConfig{
 			Enabled: false,
 			Path:    ".",
 			Format:  "xml",
 		},
-		Elasticsearch: esConfig{
+		Elasticsearch: ElasticsearchConfig{
 			Enabled: false,
 			Host:    "localhost",
 			Index:   "gracc",
 		},
-		Kafka: kafkaConfig{
+		Kafka: KafkaConfig{
 			Enabled: false,
 			Brokers: []string{"localhost:9092"},
 			Topic:   "gracc",
 		},
-		AMQP: amqpConfig{
+		AMQP: AMQPConfig{
 			Enabled: false,
 			Host:    "localhost",
 			Port:    "5672",
