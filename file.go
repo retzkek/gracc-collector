@@ -47,7 +47,7 @@ func (f *FileOutput) EndBatch() error {
 	return nil
 }
 
-func (f *FileOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
+func (f *FileOutput) OutputJUR(jur *gracc.JobUsageRecord, raw []byte) error {
 	var basePath, filename bytes.Buffer
 	var filePath string
 	// generate path for record from template

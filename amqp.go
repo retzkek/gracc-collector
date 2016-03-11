@@ -91,12 +91,15 @@ func (a *AMQPOutput) EndBatch() error {
 }
 
 // OutputJUR sends a JobUsageRecord.
-func (a *AMQPOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
+func (a *AMQPOutput) OutputJUR(jur *gracc.JobUsageRecord, raw []byte) error {
 	if !a.ChannelOpen {
 		return fmt.Errorf("AMQP: channel not open")
 	}
 	var pub amqp.Publishing
 	switch a.Config.Format {
+	case "raw":
+		pub.ContentType = "text/xml"
+		pub.Body = raw
 	case "xml":
 		if j, err := xml.Marshal(jur); err != nil {
 			log.Error("error converting JobUsageRecord to xml")
