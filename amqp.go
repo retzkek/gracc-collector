@@ -98,7 +98,7 @@ func (a *AMQPOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
 	var pub amqp.Publishing
 	switch a.Config.Format {
 	case "xml":
-		if j, err := xml.MarshalIndent(jur, "", "    "); err != nil {
+		if j, err := xml.Marshal(jur); err != nil {
 			log.Error("error converting JobUsageRecord to xml")
 			log.Debugf("%v", jur)
 			return err
