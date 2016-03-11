@@ -8,6 +8,7 @@ including:
 * File (XML or JSON format)
 * Elasticsearch index
 * Kafka topic
+* RabbitMQ (or other AMQP 0.9.1-compatible broker)
 
 This is meant for testing, development, or backup purposes.
 
@@ -36,6 +37,16 @@ The config file is [TOML](https://github.com/toml-lang/toml) format.
     enabled = true                   # output records to Kafka
     brokers = ["localhost:9092"]     # list of brokers
     topic = "gracc-osg"              # topic
+    
+    [AMQP]
+    enabled = true                   # output records to RabbitMQ
+    host = "localhost"
+    port = "5672"
+    user = "guest"
+    password = "guest"
+    exchange = ""
+    routingKey = ""
+    format = "xml"     
 
 ## Usage
 

@@ -38,7 +38,7 @@ func ReadConfig(file string) (*CollectorConfig, error) {
 			Enabled:      false,
 			Host:         "localhost",
 			Port:         "5672",
-			Format:       "rawxml",
+			Format:       "xml",
 			Exchange:     "",
 			ExchangeType: "fanout",
 			Durable:      false,
