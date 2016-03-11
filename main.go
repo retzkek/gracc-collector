@@ -156,7 +156,6 @@ func logConfig(config *CollectorConfig) {
 			"host":     config.AMQP.Host,
 			"port":     config.AMQP.Port,
 			"vhost":    config.AMQP.Vhost,
-			"queue":    config.AMQP.Queue,
 			"exchange": config.AMQP.Exchange,
 			"user":     config.AMQP.User,
 		}).Info("AMQP output enabled")

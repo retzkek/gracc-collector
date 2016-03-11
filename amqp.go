@@ -1,32 +1,37 @@
 package main
 
 import (
+	"encoding/json"
+	"encoding/xml"
+	"fmt"
+
 	log "github.com/Sirupsen/logrus"
 	gracc "github.com/gracc-project/gracc-go"
 	"github.com/streadway/amqp"
 )
 
 type AMQPConfig struct {
-	Enabled    bool
-	Host       string
-	Port       string
-	Vhost      string
-	Queue      string
-	Exchange   string
-	User       string
-	Password   string
-	Format     string
-	Durable    bool
-	AutoDelete bool
-	Exclusive  bool
+	Enabled      bool
+	Host         string
+	Port         string
+	Vhost        string
+	User         string
+	Password     string
+	Format       string
+	Exchange     string
+	ExchangeType string
+	Durable      bool
+	AutoDelete   bool
+	Internal     bool
+	RoutingKey   string
 }
 
 type AMQPOutput struct {
-	Config     AMQPConfig
-	URI        string
-	Connection *amqp.Connection
-	Channel    *amqp.Channel
-	Queue      amqp.Queue
+	Config      AMQPConfig
+	URI         string
+	Connection  *amqp.Connection
+	Channel     *amqp.Channel
+	ChannelOpen bool
 }
 
 func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
@@ -34,6 +39,7 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 		Config: conf,
 		URI: "amqp://" + conf.User + ":" + conf.Password + "@" +
 			conf.Host + ":" + conf.Port + "/" + conf.Vhost,
+		ChannelOpen: false,
 	}
 	log.WithFields(log.Fields{
 		"user":  conf.User,
@@ -54,34 +60,71 @@ func (a *AMQPOutput) Type() string {
 
 func (a *AMQPOutput) StartBatch() error {
 	var err error
+	if a.ChannelOpen {
+		a.Channel.Close()
+	}
+	a.ChannelOpen = false
 	a.Channel, err = a.Connection.Channel()
 	// declare our queue
 	log.WithFields(log.Fields{
-		"queue":      a.Config.Queue,
+		"name":       a.Config.Exchange,
+		"type":       a.Config.ExchangeType,
 		"durable":    a.Config.Durable,
 		"autoDelete": a.Config.AutoDelete,
-		"exclusive":  a.Config.Exclusive,
-	}).Debug("AMQP: declaring queue")
-	if a.Queue, err = a.Channel.QueueDeclare(a.Config.Queue, a.Config.Durable,
-		a.Config.AutoDelete, a.Config.Exclusive, false, nil); err != nil {
+		"internal":   a.Config.Internal,
+	}).Debug("AMQP: declaring exchange")
+	if err = a.Channel.ExchangeDeclare(a.Config.Exchange, a.Config.ExchangeType,
+		a.Config.Durable, a.Config.AutoDelete, a.Config.Internal, false, nil); err != nil {
+		a.Channel.Close()
 		return err
 	}
-	// Bind the queue to the exchange, matching all routing keys
-	log.WithFields(log.Fields{
-		"exchange": a.Config.Exchange,
-		"queue":    a.Queue.Name,
-	}).Debug("AMQP: binding exchange to queue")
-	if err = a.Channel.QueueBind(a.Queue.Name, "#", a.Config.Exchange, false, nil); err != nil {
-		return err
-	}
+	a.ChannelOpen = true
 	return err
 }
 
 func (a *AMQPOutput) EndBatch() error {
-	return a.Channel.Close()
+	if a.ChannelOpen {
+		a.ChannelOpen = false
+		return a.Channel.Close()
+	}
+	return nil
 }
 
 // OutputJUR sends a JobUsageRecord.
 func (a *AMQPOutput) OutputJUR(jur *gracc.JobUsageRecord) error {
-	return nil
+	if !a.ChannelOpen {
+		return fmt.Errorf("AMQP: channel not open")
+	}
+	var pub amqp.Publishing
+	switch a.Config.Format {
+	case "xml":
+		if j, err := xml.MarshalIndent(jur, "", "    "); err != nil {
+			log.Error("error converting JobUsageRecord to xml")
+			log.Debugf("%v", jur)
+			return err
+		} else {
+			pub.ContentType = "text/xml"
+			pub.Body = j
+		}
+	case "json":
+		if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
+			log.Error("error converting JobUsageRecord to json")
+			log.Debugf("%v", jur)
+			return err
+		} else {
+			pub.ContentType = "application/json"
+			pub.Body = j
+		}
+	}
+	log.WithFields(log.Fields{
+		"exchange":   a.Config.Exchange,
+		"routingKey": a.Config.RoutingKey,
+	}).Debug("AMQP: publishing record")
+	err := a.Channel.Publish(
+		a.Config.Exchange, // exchange
+		"",                // routing key
+		false,             // mandatory
+		false,             // immediate
+		pub)
+	return err
 }
