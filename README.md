@@ -69,6 +69,10 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 ## Versions
 
+### v0.01.05
+
+Add basic collector statistics served at /stats.
+
 ### v0.01.04
 
 Add option to write records to RabbitMQ.

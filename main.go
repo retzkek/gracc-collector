@@ -11,7 +11,7 @@ import (
 
 // build parameters
 var (
-	build_ver  = "0.01.04"
+	build_ver  = "0.01.05"
 	build_date = "???"
 	build_ref  = "scratch"
 )
@@ -83,6 +83,7 @@ func main() {
 		"port":    config.Port,
 	}).Info("starting HTTP server")
 	http.Handle("/gratia-servlets/rmi", g)
+	http.HandleFunc("/stats", g.ServeStats)
 	go http.ListenAndServe(config.Address+":"+config.Port, nil)
 
 	// loop to catch signals

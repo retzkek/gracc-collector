@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"net/http"
@@ -22,9 +23,16 @@ type GraccOutput interface {
 	OutputJUR(*gracc.JobUsageRecord, []byte) error
 }
 
+type CollectorStats struct {
+	ProcessedRecords uint64
+	SuccesfulUpdates uint64
+	FailedUpdates    uint64
+}
+
 type GraccCollector struct {
 	Config  *CollectorConfig
 	Outputs []GraccOutput
+	Stats   CollectorStats
 }
 
 // NewCollector initializes and returns a new Gracc collector.
@@ -66,7 +74,14 @@ func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 	return &g, nil
 }
 
-func (g GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
+	enc := json.NewEncoder(w)
+	if err := enc.Encode(g.Stats); err != nil {
+		http.Error(w, "error writing stats", http.StatusInternalServerError)
+	}
+}
+
+func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	if g.checkRequiredKeys(w, r, []string{"command"}) != nil {
 		return
@@ -80,7 +95,7 @@ func (g GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
+func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if g.checkRequiredKeys(w, r, []string{"arg1", "from"}) != nil {
 		return
 	}
@@ -92,12 +107,23 @@ func (g GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "OK")
 	} else {
 		if g.checkRequiredKeys(w, r, []string{"bundlesize"}) != nil {
+			g.Stats.FailedUpdates += 1
 			return
 		}
-		if err := g.ProcessBundle(r.FormValue("arg1"), r.FormValue("bundlesize")); err == nil {
+		bundlesize, err := strconv.Atoi(r.FormValue("bundlesize"))
+		if err != nil {
+			g.Stats.FailedUpdates += 1
+			g.handleError(w, r, "error interpreting bundlesize")
+			log.Debug(err)
+			return
+		}
+		if err := g.ProcessBundle(r.FormValue("arg1"), bundlesize); err == nil {
+			g.Stats.SuccesfulUpdates += 1
+			g.Stats.ProcessedRecords += uint64(bundlesize)
 			updateLogger.WithField("size", r.FormValue("bundlesize")).Info("received update")
 			fmt.Fprintf(w, "OK")
 		} else {
+			g.Stats.FailedUpdates += 1
 			g.handleError(w, r, "error processing bundle")
 			log.Debug(err)
 			return
@@ -105,7 +131,7 @@ func (g GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (g GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Request, keys []string) error {
+func (g *GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Request, keys []string) error {
 	for _, k := range keys {
 		if r.FormValue(k) == "" {
 			err := fmt.Sprintf("no %v", k)
@@ -116,20 +142,15 @@ func (g GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Request
 	return nil
 }
 
-func (g GraccCollector) handleError(w http.ResponseWriter, r *http.Request, err string) {
+func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, err string) {
 	log.WithField("error", err).Errorf("recieved unknown or misformed request")
 	log.Debug(r)
 	fmt.Fprintf(w, "Error")
 }
 
-func (g *GraccCollector) ProcessBundle(bundle string, bundlesize string) error {
+func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 	//fmt.Println("---+++---")
 	//fmt.Print(bundle)
-	size, err := strconv.Atoi(bundlesize)
-	if err != nil {
-		return err
-	}
-
 	// prepare outputs
 	for _, o := range g.Outputs {
 		if err := o.StartBatch(); err != nil {
@@ -166,8 +187,8 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize string) error {
 		}
 	}
 
-	if received != size {
-		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", len(parts)-1, size)
+	if received != bundlesize {
+		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", len(parts)-1, bundlesize)
 	}
 	return nil
 }
