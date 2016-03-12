@@ -24,9 +24,9 @@ type GraccOutput interface {
 }
 
 type CollectorStats struct {
-	ProcessedRecords uint64
-	SuccesfulUpdates uint64
-	FailedUpdates    uint64
+	ProcessedRecords  uint64
+	SuccessfulUpdates uint64
+	FailedUpdates     uint64
 }
 
 type GraccCollector struct {
@@ -118,7 +118,7 @@ func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if err := g.ProcessBundle(r.FormValue("arg1"), bundlesize); err == nil {
-			g.Stats.SuccesfulUpdates += 1
+			g.Stats.SuccessfulUpdates += 1
 			g.Stats.ProcessedRecords += uint64(bundlesize)
 			updateLogger.WithField("size", r.FormValue("bundlesize")).Info("received update")
 			fmt.Fprintf(w, "OK")
