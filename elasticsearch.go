@@ -54,7 +54,7 @@ func (e *ElasticsearchOutput) EndBatch() error {
 	return nil
 }
 
-func (e *ElasticsearchOutput) OutputRecord(jur gracc.Record, raw []byte) error {
+func (e *ElasticsearchOutput) OutputRecord(jur gracc.Record) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")
 		log.Debugf("%v", jur)

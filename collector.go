@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"encoding/xml"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -20,7 +19,7 @@ type GraccOutput interface {
 	// EndBatch performs any cleanup needed after sending a batch of records.
 	EndBatch() error
 	// OutputRecord sends a Record to the output
-	OutputRecord(gracc.Record, []byte) error
+	OutputRecord(gracc.Record) error
 }
 
 type CollectorStats struct {
@@ -237,12 +236,11 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 func (g *GraccCollector) ProcessXml(x string) error {
 	g.Events <- GOT_RECORD
 	var jur gracc.JobUsageRecord
-	xb := []byte(x)
-	if err := xml.Unmarshal(xb, &jur); err != nil {
+	if err := jur.ParseXml([]byte(x)); err != nil {
 		return err
 	}
 	for _, o := range g.Outputs {
-		if err := o.OutputRecord(&jur, xb); err != nil {
+		if err := o.OutputRecord(&jur); err != nil {
 			return err
 		}
 	}
