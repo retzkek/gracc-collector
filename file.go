@@ -47,7 +47,7 @@ func (f *FileOutput) EndBatch() error {
 	return nil
 }
 
-func (f *FileOutput) OutputJUR(jur *gracc.JobUsageRecord, raw []byte) error {
+func (f *FileOutput) OutputRecord(jur gracc.Record, raw []byte) error {
 	var basePath, filename bytes.Buffer
 	var filePath string
 	// generate path for record from template
@@ -58,7 +58,7 @@ func (f *FileOutput) OutputJUR(jur *gracc.JobUsageRecord, raw []byte) error {
 	h := fnv.New32()
 	for {
 		// keep writing to hash until unique filename is obtained
-		h.Write([]byte(jur.RecordIdentity.RecordId))
+		h.Write([]byte(jur.Id()))
 		fmt.Fprintf(&filename, "%x.%s", h.Sum32(), f.Config.Format)
 		filePath = path.Join(basePath.String(), filename.String())
 		if _, err := os.Stat(filePath); os.IsNotExist(err) {

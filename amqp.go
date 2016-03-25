@@ -90,8 +90,7 @@ func (a *AMQPOutput) EndBatch() error {
 	return nil
 }
 
-// OutputJUR sends a JobUsageRecord.
-func (a *AMQPOutput) OutputJUR(jur *gracc.JobUsageRecord, raw []byte) error {
+func (a *AMQPOutput) OutputRecord(jur gracc.Record, raw []byte) error {
 	if !a.ChannelOpen {
 		return fmt.Errorf("AMQP: channel not open")
 	}

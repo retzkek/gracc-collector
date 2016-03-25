@@ -41,7 +41,7 @@ func (k *KafkaOutput) EndBatch() error {
 	return nil
 }
 
-func (k *KafkaOutput) OutputJUR(jur *gracc.JobUsageRecord, raw []byte) error {
+func (k *KafkaOutput) OutputRecord(jur gracc.Record, raw []byte) error {
 	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
 		log.Error("error converting JobUsageRecord to json")
 		log.Debugf("%v", jur)

@@ -19,8 +19,8 @@ type GraccOutput interface {
 	StartBatch() error
 	// EndBatch performs any cleanup needed after sending a batch of records.
 	EndBatch() error
-	// OutputJUR sends a JobUsageRecord to the output
-	OutputJUR(*gracc.JobUsageRecord, []byte) error
+	// OutputRecord sends a Record to the output
+	OutputRecord(gracc.Record, []byte) error
 }
 
 type CollectorStats struct {
@@ -242,7 +242,7 @@ func (g *GraccCollector) ProcessXml(x string) error {
 		return err
 	}
 	for _, o := range g.Outputs {
-		if err := o.OutputJUR(&jur, xb); err != nil {
+		if err := o.OutputRecord(&jur, xb); err != nil {
 			return err
 		}
 	}
