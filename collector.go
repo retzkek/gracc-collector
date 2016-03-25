@@ -24,9 +24,10 @@ type GraccOutput interface {
 }
 
 type CollectorStats struct {
-	ProcessedRecords  uint64
-	SuccessfulUpdates uint64
-	FailedUpdates     uint64
+	Records       uint64
+	RecordErrors  uint64
+	Requests      uint64
+	RequestErrors uint64
 }
 
 type GraccCollector struct {
@@ -82,6 +83,14 @@ func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	g.Stats.Requests += 1
+	log.WithFields(log.Fields{
+		"address": r.RemoteAddr,
+		"length":  r.ContentLength,
+		"agent":   r.UserAgent(),
+		"path":    r.URL.Path,
+		"query":   r.URL.RawQuery,
+	}).Info("received request")
 	r.ParseForm()
 	if g.checkRequiredKeys(w, r, []string{"command"}) != nil {
 		return
@@ -103,29 +112,28 @@ func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		"from": r.FormValue("from"),
 	})
 	if r.FormValue("arg1") == "xxx" {
-		updateLogger.Info("received test request")
+		updateLogger.Info("received ping")
 		fmt.Fprintf(w, "OK")
 	} else {
 		if g.checkRequiredKeys(w, r, []string{"bundlesize"}) != nil {
-			g.Stats.FailedUpdates += 1
+			g.Stats.RequestErrors += 1
 			return
 		}
 		bundlesize, err := strconv.Atoi(r.FormValue("bundlesize"))
 		if err != nil {
-			g.Stats.FailedUpdates += 1
+			g.Stats.RequestErrors += 1
+			updateLogger.WithField("error", err).Warning("error handling update")
 			g.handleError(w, r, "error interpreting bundlesize")
-			log.Debug(err)
 			return
 		}
+		g.Stats.Records += uint64(bundlesize)
 		if err := g.ProcessBundle(r.FormValue("arg1"), bundlesize); err == nil {
-			g.Stats.SuccessfulUpdates += 1
-			g.Stats.ProcessedRecords += uint64(bundlesize)
-			updateLogger.WithField("size", r.FormValue("bundlesize")).Info("received update")
+			updateLogger.WithField("bundlesize", r.FormValue("bundlesize")).Info("received update")
 			fmt.Fprintf(w, "OK")
 		} else {
-			g.Stats.FailedUpdates += 1
+			g.Stats.RequestErrors += 1
+			updateLogger.WithField("error", err).Warning("error handling update")
 			g.handleError(w, r, "error processing bundle")
-			log.Debug(err)
 			return
 		}
 	}
@@ -143,8 +151,6 @@ func (g *GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Reques
 }
 
 func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, err string) {
-	log.WithField("error", err).Errorf("recieved unknown or misformed request")
-	log.Debug(r)
 	fmt.Fprintf(w, "Error")
 }
 
@@ -170,7 +176,11 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 			continue
 		case "replication":
 			if err := g.ProcessXml(parts[i+1]); err != nil {
-				return err
+				log.WithFields(log.Fields{
+					"index": i,
+					"error": err,
+				}).Error("error processing record")
+				g.Stats.RecordErrors += 1
 			}
 			received++
 			i += 2
