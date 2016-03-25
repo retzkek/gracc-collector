@@ -22,7 +22,7 @@ func TestProcessBundle_File(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	if err := g.ProcessBundle(testBundle, "10"); err != nil {
+	if err := g.ProcessBundle(testBundle, 10); err != nil {
 		t.Error(err)
 	}
 }

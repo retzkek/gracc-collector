@@ -30,10 +30,21 @@ type CollectorStats struct {
 	RequestErrors uint64
 }
 
+type Event int
+
+const (
+	GOT_RECORD Event = iota
+	RECORD_ERROR
+	GOT_REQUEST
+	REQUEST_ERROR
+)
+
 type GraccCollector struct {
 	Config  *CollectorConfig
 	Outputs []GraccOutput
 	Stats   CollectorStats
+
+	Events chan Event
 }
 
 // NewCollector initializes and returns a new Gracc collector.
@@ -41,6 +52,9 @@ func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 	var g GraccCollector
 	g.Config = conf
 	g.Outputs = make([]GraccOutput, 0, 4)
+
+	g.Events = make(chan Event)
+	go g.LogEvents()
 
 	var err error
 	if conf.File.Enabled {
@@ -75,6 +89,21 @@ func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 	return &g, nil
 }
 
+func (g *GraccCollector) LogEvents() {
+	for {
+		switch <-g.Events {
+		case GOT_RECORD:
+			g.Stats.Records++
+		case RECORD_ERROR:
+			g.Stats.RecordErrors++
+		case GOT_REQUEST:
+			g.Stats.Requests++
+		case REQUEST_ERROR:
+			g.Stats.RequestErrors++
+		}
+	}
+}
+
 func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
 	if err := enc.Encode(g.Stats); err != nil {
@@ -83,7 +112,7 @@ func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 }
 
 func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	g.Stats.Requests += 1
+	g.Events <- GOT_REQUEST
 	log.WithFields(log.Fields{
 		"address": r.RemoteAddr,
 		"length":  r.ContentLength,
@@ -100,12 +129,14 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case "update":
 		g.handleUpdate(w, r)
 	default:
+		g.Events <- REQUEST_ERROR
 		g.handleError(w, r, "unknown command")
 	}
 }
 
 func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	if g.checkRequiredKeys(w, r, []string{"arg1", "from"}) != nil {
+		g.Events <- REQUEST_ERROR
 		return
 	}
 	updateLogger := log.WithFields(log.Fields{
@@ -116,22 +147,21 @@ func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, "OK")
 	} else {
 		if g.checkRequiredKeys(w, r, []string{"bundlesize"}) != nil {
-			g.Stats.RequestErrors += 1
+			g.Events <- REQUEST_ERROR
 			return
 		}
 		bundlesize, err := strconv.Atoi(r.FormValue("bundlesize"))
 		if err != nil {
-			g.Stats.RequestErrors += 1
+			g.Events <- REQUEST_ERROR
 			updateLogger.WithField("error", err).Warning("error handling update")
 			g.handleError(w, r, "error interpreting bundlesize")
 			return
 		}
-		g.Stats.Records += uint64(bundlesize)
 		if err := g.ProcessBundle(r.FormValue("arg1"), bundlesize); err == nil {
 			updateLogger.WithField("bundlesize", r.FormValue("bundlesize")).Info("received update")
 			fmt.Fprintf(w, "OK")
 		} else {
-			g.Stats.RequestErrors += 1
+			g.Events <- REQUEST_ERROR
 			updateLogger.WithField("error", err).Warning("error handling update")
 			g.handleError(w, r, "error processing bundle")
 			return
@@ -151,6 +181,7 @@ func (g *GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Reques
 }
 
 func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, err string) {
+	log.WithField("error", err).Warning("error handling request")
 	fmt.Fprintf(w, "Error")
 }
 
@@ -180,7 +211,7 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 					"index": i,
 					"error": err,
 				}).Error("error processing record")
-				g.Stats.RecordErrors += 1
+				g.Events <- RECORD_ERROR
 			}
 			received++
 			i += 2
@@ -204,6 +235,7 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 }
 
 func (g *GraccCollector) ProcessXml(x string) error {
+	g.Events <- GOT_RECORD
 	var jur gracc.JobUsageRecord
 	xb := []byte(x)
 	if err := xml.Unmarshal(xb, &jur); err != nil {
