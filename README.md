@@ -69,6 +69,10 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 ## Versions
 
+### v0.01.07
+
+Created internal queues for outputting records.
+
 ### v0.01.05
 
 Add basic collector statistics served at /stats.
