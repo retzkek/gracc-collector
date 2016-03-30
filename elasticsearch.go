@@ -15,8 +15,9 @@ type ElasticsearchConfig struct {
 }
 
 type ElasticsearchOutput struct {
-	Config ElasticsearchConfig
-	Client *elastic.Client
+	Config     ElasticsearchConfig
+	Client     *elastic.Client
+	outputChan chan gracc.Record
 }
 
 func InitElasticsearch(conf ElasticsearchConfig) (*ElasticsearchOutput, error) {
@@ -39,6 +40,8 @@ func InitElasticsearch(conf ElasticsearchConfig) (*ElasticsearchOutput, error) {
 			return nil, err
 		}
 	}
+	e.outputChan = make(chan gracc.Record, 10)
+	go e.OutputRecords()
 	return e, nil
 }
 
@@ -46,30 +49,29 @@ func (e *ElasticsearchOutput) Type() string {
 	return "elasticsearch"
 }
 
-func (e *ElasticsearchOutput) StartBatch() error {
-	return nil
+func (e *ElasticsearchOutput) OutputChan() chan gracc.Record {
+	return e.outputChan
 }
 
-func (e *ElasticsearchOutput) EndBatch() error {
-	return nil
-}
-
-func (e *ElasticsearchOutput) OutputRecord(jur gracc.Record) error {
-	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
-		log.Error("error converting JobUsageRecord to json")
-		log.Debugf("%v", jur)
-		return err
-	} else {
-		_, err := e.Client.Index().
-			Index(e.Config.Index).
-			Type("JobUsageRecord").
-			BodyString(string(j[:])).
-			Do()
-		if err != nil {
-			return err
+func (e *ElasticsearchOutput) OutputRecords() {
+	for jur := range e.outputChan {
+		if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
+			log.Error("error converting JobUsageRecord to json")
+			log.Debugf("%v", jur)
+			//return err
+		} else {
+			_, err := e.Client.Index().
+				Index(e.Config.Index).
+				Type("JobUsageRecord").
+				BodyString(string(j[:])).
+				Do()
+			if err != nil {
+				log.Error(err)
+				//return err
+			}
 		}
 	}
-	return nil
+	//return nil
 }
 
 const createBody = `

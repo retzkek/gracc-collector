@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"encoding/xml"
-	"fmt"
 
 	log "github.com/Sirupsen/logrus"
 	gracc "github.com/gracc-project/gracc-go"
@@ -32,6 +31,7 @@ type AMQPOutput struct {
 	Connection  *amqp.Connection
 	Channel     *amqp.Channel
 	ChannelOpen bool
+	outputChan  chan gracc.Record
 }
 
 func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
@@ -51,6 +51,11 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	if a.Connection, err = amqp.Dial(a.URI); err != nil {
 		return nil, err
 	}
+	if err = a.refreshChannel(); err != nil {
+		return nil, err
+	}
+	a.outputChan = make(chan gracc.Record, 10)
+	go a.OutputRecords()
 	return a, nil
 }
 
@@ -58,7 +63,11 @@ func (a *AMQPOutput) Type() string {
 	return "AMQP"
 }
 
-func (a *AMQPOutput) StartBatch() error {
+func (a *AMQPOutput) OutputChan() chan gracc.Record {
+	return a.outputChan
+}
+
+func (a *AMQPOutput) refreshChannel() error {
 	var err error
 	if a.ChannelOpen {
 		a.Channel.Close()
@@ -82,51 +91,52 @@ func (a *AMQPOutput) StartBatch() error {
 	return err
 }
 
-func (a *AMQPOutput) EndBatch() error {
-	if a.ChannelOpen {
-		a.ChannelOpen = false
-		return a.Channel.Close()
-	}
-	return nil
-}
-
-func (a *AMQPOutput) OutputRecord(jur gracc.Record) error {
-	if !a.ChannelOpen {
-		return fmt.Errorf("AMQP: channel not open")
-	}
-	var pub amqp.Publishing
-	switch a.Config.Format {
-	case "raw":
-		pub.ContentType = "text/xml"
-		pub.Body = jur.Raw()
-	case "xml":
-		if j, err := xml.Marshal(jur); err != nil {
-			log.Error("error converting JobUsageRecord to xml")
-			log.Debugf("%v", jur)
-			return err
-		} else {
+func (a *AMQPOutput) OutputRecords() {
+	for jur := range a.outputChan {
+		if !a.ChannelOpen {
+			a.refreshChannel()
+		}
+		var pub amqp.Publishing
+		switch a.Config.Format {
+		case "raw":
 			pub.ContentType = "text/xml"
-			pub.Body = j
+			pub.Body = jur.Raw()
+		case "xml":
+			if j, err := xml.Marshal(jur); err != nil {
+				log.Error("error converting JobUsageRecord to xml")
+				log.Debugf("%v", jur)
+				//return err
+			} else {
+				pub.ContentType = "text/xml"
+				pub.Body = j
+			}
+		case "json":
+			if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
+				log.Error("error converting JobUsageRecord to json")
+				log.Debugf("%v", jur)
+				//return err
+			} else {
+				pub.ContentType = "application/json"
+				pub.Body = j
+			}
 		}
-	case "json":
-		if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
-			log.Error("error converting JobUsageRecord to json")
-			log.Debugf("%v", jur)
-			return err
-		} else {
-			pub.ContentType = "application/json"
-			pub.Body = j
+		log.WithFields(log.Fields{
+			"exchange":   a.Config.Exchange,
+			"routingKey": a.Config.RoutingKey,
+		}).Debug("AMQP: publishing record")
+		if err := a.Channel.Publish(
+			a.Config.Exchange, // exchange
+			"",                // routing key
+			false,             // mandatory
+			false,             // immediate
+			pub); err != nil {
+			log.WithFields(log.Fields{
+				"error": err,
+			}).Warning("AMQP: error publishing to channel; refreshing channel")
+			a.refreshChannel()
+			// put record back in queue to resend
+			a.outputChan <- jur
 		}
 	}
-	log.WithFields(log.Fields{
-		"exchange":   a.Config.Exchange,
-		"routingKey": a.Config.RoutingKey,
-	}).Debug("AMQP: publishing record")
-	err := a.Channel.Publish(
-		a.Config.Exchange, // exchange
-		"",                // routing key
-		false,             // mandatory
-		false,             // immediate
-		pub)
-	return err
+	//return err
 }

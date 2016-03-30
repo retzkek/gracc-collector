@@ -14,12 +14,8 @@ import (
 type GraccOutput interface {
 	// Type returns the type of the output.
 	Type() string
-	// StartBatch performs any setup needed to handle a batch of records.
-	StartBatch() error
-	// EndBatch performs any cleanup needed after sending a batch of records.
-	EndBatch() error
-	// OutputRecord sends a Record to the output
-	OutputRecord(gracc.Record) error
+	// OutputChan returns a channel to send a record to be output
+	OutputChan() chan gracc.Record
 }
 
 type CollectorStats struct {
@@ -187,16 +183,6 @@ func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, err
 func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 	//fmt.Println("---+++---")
 	//fmt.Print(bundle)
-	// prepare outputs
-	for _, o := range g.Outputs {
-		if err := o.StartBatch(); err != nil {
-			log.WithFields(log.Fields{
-				"output": o.Type(),
-				"error":  err,
-			}).Error("error starting output batch")
-		}
-	}
-
 	received := 0
 	parts := strings.Split(bundle, "|")
 	for i := 0; i < len(parts); i++ {
@@ -217,16 +203,6 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 		}
 	}
 
-	// clean up outputs
-	for _, o := range g.Outputs {
-		if err := o.EndBatch(); err != nil {
-			log.WithFields(log.Fields{
-				"output": o.Type(),
-				"error":  err,
-			}).Error("error ending output batch")
-		}
-	}
-
 	if received != bundlesize {
 		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", len(parts)-1, bundlesize)
 	}
@@ -240,9 +216,7 @@ func (g *GraccCollector) ProcessXml(x string) error {
 		return err
 	}
 	for _, o := range g.Outputs {
-		if err := o.OutputRecord(&jur); err != nil {
-			return err
-		}
+		o.OutputChan() <- &jur
 	}
 	return nil
 }

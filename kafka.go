@@ -15,8 +15,9 @@ type KafkaConfig struct {
 }
 
 type KafkaOutput struct {
-	Config   KafkaConfig
-	Producer sarama.SyncProducer
+	Config     KafkaConfig
+	Producer   sarama.SyncProducer
+	outputChan chan gracc.Record
 }
 
 func InitKafka(conf KafkaConfig) (*KafkaOutput, error) {
@@ -26,6 +27,8 @@ func InitKafka(conf KafkaConfig) (*KafkaOutput, error) {
 	if k.Producer, err = sarama.NewSyncProducer(conf.Brokers, nil); err != nil {
 		return nil, err
 	}
+	k.outputChan = make(chan gracc.Record, 10)
+	go k.OutputRecords()
 	return k, nil
 }
 
@@ -33,25 +36,24 @@ func (k *KafkaOutput) Type() string {
 	return "kafka"
 }
 
-func (k *KafkaOutput) StartBatch() error {
-	return nil
+func (k *KafkaOutput) OutputChan() chan gracc.Record {
+	return k.outputChan
 }
 
-func (k *KafkaOutput) EndBatch() error {
-	return nil
-}
-
-func (k *KafkaOutput) OutputRecord(jur gracc.Record) error {
-	if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
-		log.Error("error converting JobUsageRecord to json")
-		log.Debugf("%v", jur)
-		return err
-	} else {
-		msg := &sarama.ProducerMessage{Topic: k.Config.Topic, Value: sarama.ByteEncoder(j)}
-		_, _, err := k.Producer.SendMessage(msg)
-		if err != nil {
-			return err
+func (k *KafkaOutput) OutputRecords() {
+	for jur := range k.outputChan {
+		if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
+			log.Error("error converting JobUsageRecord to json")
+			log.Debugf("%v", jur)
+			//return err
+		} else {
+			msg := &sarama.ProducerMessage{Topic: k.Config.Topic, Value: sarama.ByteEncoder(j)}
+			_, _, err := k.Producer.SendMessage(msg)
+			if err != nil {
+				log.Error(err)
+				//return err
+			}
 		}
 	}
-	return nil
+	//return nil
 }
