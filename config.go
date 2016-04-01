@@ -45,6 +45,7 @@ func ReadConfig(file string) (*CollectorConfig, error) {
 			AutoDelete:   true,
 			Internal:     false,
 			RoutingKey:   "",
+			Workers:      2,
 		},
 	}
 	if _, err := toml.DecodeFile(file, &conf); err != nil {

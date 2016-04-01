@@ -23,6 +23,7 @@ type AMQPConfig struct {
 	AutoDelete   bool
 	Internal     bool
 	RoutingKey   string
+	Workers      int
 }
 
 type AMQPOutput struct {
@@ -41,22 +42,44 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 			conf.Host + ":" + conf.Port + "/" + conf.Vhost,
 		ChannelOpen: false,
 	}
+	if err := a.dial(); err != nil {
+		return nil, err
+	}
+	a.outputChan = make(chan gracc.Record)
+	for i := 0; i < conf.Workers; i++ {
+		go a.OutputRecords()
+	}
+	return a, nil
+}
+
+func (a *AMQPOutput) dial() error {
+	if a.Connection != nil {
+		a.Connection.Close()
+	}
 	log.WithFields(log.Fields{
-		"user":  conf.User,
-		"host":  conf.Host,
-		"vhost": conf.Vhost,
-		"port":  conf.Port,
-	}).Info("connecting to RabbitMQ")
+		"user":  a.Config.User,
+		"host":  a.Config.Host,
+		"vhost": a.Config.Vhost,
+		"port":  a.Config.Port,
+	}).Info("AMQP: connecting to RabbitMQ")
 	var err error
 	if a.Connection, err = amqp.Dial(a.URI); err != nil {
-		return nil, err
+		log.WithField("error", err).Error("AMQP: error connecting to RabbitMQ")
+		return err
 	}
-	if err = a.refreshChannel(); err != nil {
-		return nil, err
-	}
-	a.outputChan = make(chan gracc.Record, 10)
-	go a.OutputRecords()
-	return a, nil
+	// listen for close events
+	closing := a.Connection.NotifyClose(make(chan *amqp.Error))
+	go func() {
+		for c := range closing {
+			log.WithFields(log.Fields{
+				"code":             c.Code,
+				"reason":           c.Reason,
+				"server-initiated": c.Server,
+				"can-recover":      c.Recover,
+			}).Warning("AMQP: connection closed")
+		}
+	}()
+	return nil
 }
 
 func (a *AMQPOutput) Type() string {
@@ -67,14 +90,28 @@ func (a *AMQPOutput) OutputChan() chan gracc.Record {
 	return a.outputChan
 }
 
-func (a *AMQPOutput) refreshChannel() error {
-	var err error
-	if a.ChannelOpen {
-		a.Channel.Close()
+func (a *AMQPOutput) OutputRecords() {
+	amqpChan, err := a.Connection.Channel()
+	if err != nil {
+		log.WithField("error", err).Panic("AMQP: error opening channel")
 	}
-	a.ChannelOpen = false
-	a.Channel, err = a.Connection.Channel()
-	// declare our queue
+	defer amqpChan.Close()
+	// listen for close events
+	closing := amqpChan.NotifyClose(make(chan *amqp.Error))
+	go func() {
+		for c := range closing {
+			log.WithFields(log.Fields{
+				"code":             c.Code,
+				"reason":           c.Reason,
+				"server-initiated": c.Server,
+				"can-recover":      c.Recover,
+			}).Warning("AMQP: channel closed")
+			amqpChan, err = a.Connection.Channel()
+			if err != nil {
+				log.WithField("error", err).Panic("AMQP: error opening channel")
+			}
+		}
+	}()
 	log.WithFields(log.Fields{
 		"name":       a.Config.Exchange,
 		"type":       a.Config.ExchangeType,
@@ -82,20 +119,12 @@ func (a *AMQPOutput) refreshChannel() error {
 		"autoDelete": a.Config.AutoDelete,
 		"internal":   a.Config.Internal,
 	}).Debug("AMQP: declaring exchange")
-	if err = a.Channel.ExchangeDeclare(a.Config.Exchange, a.Config.ExchangeType,
+	if err = amqpChan.ExchangeDeclare(a.Config.Exchange, a.Config.ExchangeType,
 		a.Config.Durable, a.Config.AutoDelete, a.Config.Internal, false, nil); err != nil {
-		a.Channel.Close()
-		return err
+		amqpChan.Close()
+		log.WithField("error", err).Panic("AMQP: error declaring exchange")
 	}
-	a.ChannelOpen = true
-	return err
-}
-
-func (a *AMQPOutput) OutputRecords() {
 	for jur := range a.outputChan {
-		if !a.ChannelOpen {
-			a.refreshChannel()
-		}
 		var pub amqp.Publishing
 		switch a.Config.Format {
 		case "raw":
@@ -124,7 +153,7 @@ func (a *AMQPOutput) OutputRecords() {
 			"exchange":   a.Config.Exchange,
 			"routingKey": a.Config.RoutingKey,
 		}).Debug("AMQP: publishing record")
-		if err := a.Channel.Publish(
+		if err := amqpChan.Publish(
 			a.Config.Exchange, // exchange
 			"",                // routing key
 			false,             // mandatory
@@ -132,10 +161,13 @@ func (a *AMQPOutput) OutputRecords() {
 			pub); err != nil {
 			log.WithFields(log.Fields{
 				"error": err,
-			}).Warning("AMQP: error publishing to channel; refreshing channel")
-			a.refreshChannel()
-			// put record back in queue to resend
-			a.outputChan <- jur
+			}).Warning("AMQP: error publishing to channel")
+			// put record back in queue to resend, if possible
+			select {
+			case a.outputChan <- jur:
+			default:
+				log.Error("AMQP: no workers available to handle record")
+			}
 		}
 	}
 	//return err
