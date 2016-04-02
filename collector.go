@@ -113,8 +113,7 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		"address": r.RemoteAddr,
 		"length":  r.ContentLength,
 		"agent":   r.UserAgent(),
-		"path":    r.URL.Path,
-		"query":   r.URL.RawQuery,
+		"path":    r.URL.EscapedPath(),
 	})
 	r.ParseForm()
 	if err := g.checkRequiredKeys(w, r, []string{"command"}); err != nil {
