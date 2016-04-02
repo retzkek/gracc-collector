@@ -128,6 +128,9 @@ func (a *AMQPOutput) OutputRecords(id int) {
 			}
 		}
 	}()
+	// listen for ACK/NACK
+	ack, nack := amqpChan.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
+	amqpChan.Confirm(false)
 	wlog.WithFields(log.Fields{
 		"name":       a.Config.Exchange,
 		"type":       a.Config.ExchangeType,
@@ -174,7 +177,7 @@ func (a *AMQPOutput) OutputRecords(id int) {
 		if err := amqpChan.Publish(
 			a.Config.Exchange, // exchange
 			"",                // routing key
-			false,             // mandatory
+			true,              // mandatory
 			false,             // immediate
 			pub); err != nil {
 			wlog.WithFields(log.Fields{
@@ -192,6 +195,13 @@ func (a *AMQPOutput) OutputRecords(id int) {
 			"routingKey": a.Config.RoutingKey,
 			"record":     jur.Id(),
 		}).Debug("record published")
+		// wait for ACK/NACK
+		select {
+		case tag := <-ack:
+			wlog.WithField("tag", tag).Debug("ack")
+		case tag := <-nack:
+			wlog.WithField("tag", tag).Warning("nack")
+		}
 	}
 	wlog.Warning("stopping worker")
 }
