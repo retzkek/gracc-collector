@@ -108,30 +108,33 @@ func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 
 func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.Events <- GOT_REQUEST
-	log.WithFields(log.Fields{
+	rlog := log.WithFields(log.Fields{
 		"address": r.RemoteAddr,
 		"length":  r.ContentLength,
 		"agent":   r.UserAgent(),
 		"path":    r.URL.Path,
 		"query":   r.URL.RawQuery,
-	}).Info("received request")
+	})
 	r.ParseForm()
-	if g.checkRequiredKeys(w, r, []string{"command"}) != nil {
+	if err := g.checkRequiredKeys(w, r, []string{"command"}); err != nil {
+		g.Events <- REQUEST_ERROR
+		g.handleError(w, r, rlog, err)
 		return
 	}
 	command := r.FormValue("command")
 	switch command {
 	case "update":
-		g.handleUpdate(w, r)
+		g.handleUpdate(w, r, rlog)
 	default:
 		g.Events <- REQUEST_ERROR
-		g.handleError(w, r, "unknown command")
+		g.handleError(w, r, rlog, fmt.Errorf("unknown command"))
 	}
 }
 
-func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
-	if g.checkRequiredKeys(w, r, []string{"arg1", "from"}) != nil {
+func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request, rlog *log.Entry) {
+	if err := g.checkRequiredKeys(w, r, []string{"arg1", "from"}); err != nil {
 		g.Events <- REQUEST_ERROR
+		g.handleError(w, r, rlog, err)
 		return
 	}
 	updateLogger := log.WithFields(log.Fields{
@@ -139,26 +142,29 @@ func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request) {
 	})
 	if r.FormValue("arg1") == "xxx" {
 		updateLogger.Info("received ping")
-		fmt.Fprintf(w, "OK")
+		g.handleSuccess(w, r, rlog)
+		return
 	} else {
-		if g.checkRequiredKeys(w, r, []string{"bundlesize"}) != nil {
+		if err := g.checkRequiredKeys(w, r, []string{"bundlesize"}); err != nil {
 			g.Events <- REQUEST_ERROR
+			g.handleError(w, r, rlog, err)
 			return
 		}
 		bundlesize, err := strconv.Atoi(r.FormValue("bundlesize"))
 		if err != nil {
 			g.Events <- REQUEST_ERROR
 			updateLogger.WithField("error", err).Warning("error handling update")
-			g.handleError(w, r, "error interpreting bundlesize")
+			g.handleError(w, r, rlog, fmt.Errorf("error interpreting bundlesize"))
 			return
 		}
 		if err := g.ProcessBundle(r.FormValue("arg1"), bundlesize); err == nil {
 			updateLogger.WithField("bundlesize", r.FormValue("bundlesize")).Info("received update")
-			fmt.Fprintf(w, "OK")
+			g.handleSuccess(w, r, rlog)
+			return
 		} else {
 			g.Events <- REQUEST_ERROR
 			updateLogger.WithField("error", err).Warning("error handling update")
-			g.handleError(w, r, "error processing bundle")
+			g.handleError(w, r, rlog, fmt.Errorf("error processing bundle"))
 			return
 		}
 	}
@@ -168,16 +174,25 @@ func (g *GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Reques
 	for _, k := range keys {
 		if r.FormValue(k) == "" {
 			err := fmt.Sprintf("no %v", k)
-			g.handleError(w, r, err)
 			return fmt.Errorf(err)
 		}
 	}
 	return nil
 }
 
-func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, err string) {
-	log.WithField("error", err).Warning("error handling request")
+func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, rlog *log.Entry, err error) {
+	rlog.WithFields(log.Fields{
+		"response": "Error",
+		"error":    err,
+	}).Info("handled request")
 	fmt.Fprintf(w, "Error")
+}
+
+func (g *GraccCollector) handleSuccess(w http.ResponseWriter, r *http.Request, rlog *log.Entry) {
+	rlog.WithFields(log.Fields{
+		"response": "OK",
+	}).Info("handled request")
+	fmt.Fprintf(w, "OK")
 }
 
 func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {

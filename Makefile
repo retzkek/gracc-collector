@@ -13,9 +13,18 @@ test:
 
 servertest:
 	# send ping
-	curl http://localhost:8080/gratia-servlets/rmi\?command\=update\&arg1\=xxx\&from\=localhsot\&bundlesize\=1
+	curl -i http://localhost:8080/gratia-servlets/rmi\?command\=update\&arg1\=xxx\&from\=localhost\&bundlesize\=1
+	@echo
 	# send test bundle
-	curl http://localhost:8080/gratia-servlets/rmi\?command\=update\&from\=localhost\&bundlesize\=10 --data-urlencode arg1@test.bundle
+	curl -i http://localhost:8080/gratia-servlets/rmi\?command\=update\&from\=localhost\&bundlesize\=10 --data-urlencode arg1@test.bundle
+	@echo
+	# send bad requests
+	curl -i http://localhost:8080/gratia-servlets/rmi
+	@echo
+	curl -i http://localhost:8080/gratia-servlets/rmi\?command\=noop
+	@echo
+	curl -i http://localhost:8080/gratia-servlets/rmi\?command\=update
+	@echo
 
 clean:
 	rm -f gracc
