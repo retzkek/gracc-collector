@@ -119,7 +119,7 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	if err := g.checkRequiredKeys(w, r, []string{"command"}); err != nil {
 		g.Events <- REQUEST_ERROR
-		g.handleError(w, r, rlog, err)
+		g.handleError(w, r, rlog, err, http.StatusBadRequest)
 		return
 	}
 	command := r.FormValue("command")
@@ -128,14 +128,14 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		g.handleUpdate(w, r, rlog)
 	default:
 		g.Events <- REQUEST_ERROR
-		g.handleError(w, r, rlog, fmt.Errorf("unknown command"))
+		g.handleError(w, r, rlog, fmt.Errorf("unknown command"), http.StatusBadRequest)
 	}
 }
 
 func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request, rlog *log.Entry) {
 	if err := g.checkRequiredKeys(w, r, []string{"arg1", "from"}); err != nil {
 		g.Events <- REQUEST_ERROR
-		g.handleError(w, r, rlog, err)
+		g.handleError(w, r, rlog, err, http.StatusBadRequest)
 		return
 	}
 	updateLogger := log.WithFields(log.Fields{
@@ -148,14 +148,14 @@ func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request, rl
 	} else {
 		if err := g.checkRequiredKeys(w, r, []string{"bundlesize"}); err != nil {
 			g.Events <- REQUEST_ERROR
-			g.handleError(w, r, rlog, err)
+			g.handleError(w, r, rlog, err, http.StatusBadRequest)
 			return
 		}
 		bundlesize, err := strconv.Atoi(r.FormValue("bundlesize"))
 		if err != nil {
 			g.Events <- REQUEST_ERROR
-			updateLogger.WithField("error", err).Warning("error handling update")
-			g.handleError(w, r, rlog, fmt.Errorf("error interpreting bundlesize"))
+			updateLogger.WithField("error", err).Error("error handling update")
+			g.handleError(w, r, rlog, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
 			return
 		}
 		if err := g.ProcessBundle(r.FormValue("arg1"), bundlesize); err == nil {
@@ -164,8 +164,8 @@ func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request, rl
 			return
 		} else {
 			g.Events <- REQUEST_ERROR
-			updateLogger.WithField("error", err).Warning("error handling update")
-			g.handleError(w, r, rlog, fmt.Errorf("error processing bundle"))
+			updateLogger.WithField("error", err).Error("error handling update")
+			g.handleError(w, r, rlog, fmt.Errorf("error processing bundle"), http.StatusInternalServerError)
 			return
 		}
 	}
@@ -181,28 +181,29 @@ func (g *GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Reques
 	return nil
 }
 
-func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, rlog *log.Entry, err error) {
+func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, rlog *log.Entry, err error, code int) {
+	res := fmt.Sprintf("Error: %s", err)
 	rlog.WithFields(log.Fields{
-		"response": "Error",
-		"error":    err,
+		"response":      res,
+		"response-code": code,
+		"error":         err,
 	}).Info("handled request")
-	fmt.Fprintf(w, "Error")
+	w.WriteHeader(code)
+	fmt.Fprint(w, res)
 }
 
 func (g *GraccCollector) handleSuccess(w http.ResponseWriter, r *http.Request, rlog *log.Entry) {
 	rlog.WithFields(log.Fields{
-		"response": "OK",
+		"response":      "OK",
+		"response-code": 200,
 	}).Info("handled request")
 	fmt.Fprintf(w, "OK")
 }
 
 func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
-	//fmt.Println("---+++---")
-	//fmt.Print(bundle)
 	received := 0
 	parts := strings.Split(bundle, "|")
 	for i := 0; i < len(parts); i++ {
-		//fmt.Printf("--- %d ----\n%s---\n\n", i, p)
 		switch parts[i] {
 		case "":
 			continue
