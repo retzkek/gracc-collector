@@ -67,7 +67,13 @@ control the process.
 See `sample/gracc.logrotate` for a sample logrotate configuration. Copy the file (with
 appropriate changes) to `/etc/logrotate.d/gracc`.
 
-## Versions
+## Release Notes
+
+### v0.01.08
+
+* Support multiple AMQP workers
+* Timeout if output filter is blocking too long, respond to request with error code so bundle gets re-sent later
+* Improved log messages and responses
 
 ### v0.01.07
 
