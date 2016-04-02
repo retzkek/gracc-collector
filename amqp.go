@@ -130,6 +130,7 @@ func (a *AMQPOutput) OutputRecords(id int) {
 		wlog.WithField("error", err).Panic("error declaring exchange")
 	}
 	for jur := range a.outputChan {
+		//time.Sleep(10 * time.Second) // make processing take longer than timeout
 		var pub amqp.Publishing
 		switch a.Config.Format {
 		case "raw":

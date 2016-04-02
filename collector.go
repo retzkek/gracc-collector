@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	log "github.com/Sirupsen/logrus"
 	gracc "github.com/gracc-project/gracc-go"
@@ -212,6 +213,7 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 					"error": err,
 				}).Error("error processing record")
 				g.Events <- RECORD_ERROR
+				return fmt.Errorf("error processing record")
 			}
 			received++
 			i += 2
@@ -231,7 +233,11 @@ func (g *GraccCollector) ProcessXml(x string) error {
 		return err
 	}
 	for _, o := range g.Outputs {
-		o.OutputChan() <- &jur
+		select {
+		case o.OutputChan() <- &jur:
+		case <-time.After(g.Config.Timeout * time.Second):
+			return fmt.Errorf("timed out waiting for %s output worker", o.Type())
+		}
 	}
 	return nil
 }
