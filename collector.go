@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -39,6 +40,7 @@ type GraccCollector struct {
 	Config  *CollectorConfig
 	Outputs []GraccOutput
 	Stats   CollectorStats
+	statsm  sync.Mutex
 
 	Events chan Event
 }
@@ -89,20 +91,31 @@ func (g *GraccCollector) LogEvents() {
 	for {
 		switch <-g.Events {
 		case GOT_RECORD:
+			g.statsm.Lock()
 			g.Stats.Records++
+			g.statsm.Unlock()
 		case RECORD_ERROR:
+			g.statsm.Lock()
 			g.Stats.RecordErrors++
+			g.statsm.Unlock()
 		case GOT_REQUEST:
+			g.statsm.Lock()
 			g.Stats.Requests++
+			g.statsm.Unlock()
 		case REQUEST_ERROR:
+			g.statsm.Lock()
 			g.Stats.RequestErrors++
+			g.statsm.Unlock()
 		}
 	}
 }
 
 func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
-	if err := enc.Encode(g.Stats); err != nil {
+	g.statsm.Lock()
+	stats := g.Stats
+	g.statsm.Unlock()
+	if err := enc.Encode(stats); err != nil {
 		http.Error(w, "error writing stats", http.StatusInternalServerError)
 	}
 }
