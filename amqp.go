@@ -80,6 +80,17 @@ func (a *AMQPOutput) dial() error {
 			}).Warning("AMQP: connection closed")
 		}
 	}()
+	// listen for blocking events
+	blockings := a.Connection.NotifyBlocked(make(chan amqp.Blocking))
+	go func() {
+		for b := range blockings {
+			if b.Active {
+				log.WithField("reason", b.Reason).Warning("AMQP: TCP blocked")
+			} else {
+				log.Info("AMQP: TCP unblocked")
+			}
+		}
+	}()
 	return nil
 }
 
@@ -158,6 +169,7 @@ func (a *AMQPOutput) OutputRecords(id int) {
 		wlog.WithFields(log.Fields{
 			"exchange":   a.Config.Exchange,
 			"routingKey": a.Config.RoutingKey,
+			"record":     jur.Id(),
 		}).Debug("publishing record")
 		if err := amqpChan.Publish(
 			a.Config.Exchange, // exchange
@@ -175,6 +187,11 @@ func (a *AMQPOutput) OutputRecords(id int) {
 				wlog.Error("no workers available to handle record")
 			}
 		}
+		wlog.WithFields(log.Fields{
+			"exchange":   a.Config.Exchange,
+			"routingKey": a.Config.RoutingKey,
+			"record":     jur.Id(),
+		}).Debug("record published")
 	}
-	//return err
+	wlog.Warning("stopping worker")
 }
