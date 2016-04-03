@@ -48,7 +48,7 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	}
 	a.outputChan = make(chan gracc.Record)
 	for i := 0; i < conf.Workers; i++ {
-		go a.OutputRecords(i)
+		go a.outputWorker(i)
 	}
 	return a, nil
 }
@@ -102,7 +102,7 @@ func (a *AMQPOutput) OutputChan() chan gracc.Record {
 	return a.outputChan
 }
 
-func (a *AMQPOutput) OutputRecords(id int) {
+func (a *AMQPOutput) outputWorker(id int) {
 	wlog := log.WithFields(log.Fields{
 		"output": fmt.Sprintf("AMQP:%d", id),
 	})
@@ -112,62 +112,13 @@ func (a *AMQPOutput) OutputRecords(id int) {
 		wlog.WithField("error", err).Panic("error opening channel")
 	}
 	defer amqpChan.Close()
-	// listen for close events
-	closing := amqpChan.NotifyClose(make(chan *amqp.Error))
-	go func() {
-		for c := range closing {
-			wlog.WithFields(log.Fields{
-				"code":             c.Code,
-				"reason":           c.Reason,
-				"server-initiated": c.Server,
-				"can-recover":      c.Recover,
-			}).Warning("channel closed")
-			amqpChan, err = a.Connection.Channel()
-			if err != nil {
-				wlog.WithField("error", err).Panic("error opening channel")
-			}
-		}
-	}()
-	// listen for ACK/NACK
-	ack, nack := amqpChan.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
-	amqpChan.Confirm(false)
-	wlog.WithFields(log.Fields{
-		"name":       a.Config.Exchange,
-		"type":       a.Config.ExchangeType,
-		"durable":    a.Config.Durable,
-		"autoDelete": a.Config.AutoDelete,
-		"internal":   a.Config.Internal,
-	}).Debug("declaring exchange")
-	if err = amqpChan.ExchangeDeclare(a.Config.Exchange, a.Config.ExchangeType,
-		a.Config.Durable, a.Config.AutoDelete, a.Config.Internal, false, nil); err != nil {
-		amqpChan.Close()
-		wlog.WithField("error", err).Panic("error declaring exchange")
-	}
+
+	ack, nack := a.setupNotifiers(amqpChan, wlog)
+
 	for jur := range a.outputChan {
-		//time.Sleep(10 * time.Second) // make processing take longer than timeout
-		var pub amqp.Publishing
-		switch a.Config.Format {
-		case "raw":
-			pub.ContentType = "text/xml"
-			pub.Body = jur.Raw()
-		case "xml":
-			if j, err := xml.Marshal(jur); err != nil {
-				wlog.Error("error converting JobUsageRecord to xml")
-				wlog.Debugf("%v", jur)
-				//return err
-			} else {
-				pub.ContentType = "text/xml"
-				pub.Body = j
-			}
-		case "json":
-			if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
-				wlog.Error("error converting JobUsageRecord to json")
-				wlog.Debugf("%v", jur)
-				//return err
-			} else {
-				pub.ContentType = "application/json"
-				pub.Body = j
-			}
+		pub := a.makePublishing(jur, wlog)
+		if pub == nil {
+			continue
 		}
 		wlog.WithFields(log.Fields{
 			"exchange":   a.Config.Exchange,
@@ -179,7 +130,7 @@ func (a *AMQPOutput) OutputRecords(id int) {
 			"",                // routing key
 			true,              // mandatory
 			false,             // immediate
-			pub); err != nil {
+			*pub); err != nil {
 			wlog.WithFields(log.Fields{
 				"error": err,
 			}).Warning("error publishing to channel")
@@ -204,4 +155,68 @@ func (a *AMQPOutput) OutputRecords(id int) {
 		}
 	}
 	wlog.Warning("worker exiting")
+}
+
+func (a *AMQPOutput) setupNotifiers(amqpChan *amqp.Channel, wlog *log.Entry) (ack, nack chan uint64) {
+	var err error
+	// listen for close events
+	closing := amqpChan.NotifyClose(make(chan *amqp.Error))
+	go func() {
+		for c := range closing {
+			wlog.WithFields(log.Fields{
+				"code":             c.Code,
+				"reason":           c.Reason,
+				"server-initiated": c.Server,
+				"can-recover":      c.Recover,
+			}).Warning("channel closed")
+			amqpChan, err = a.Connection.Channel()
+			if err != nil {
+				wlog.WithField("error", err).Panic("error opening channel")
+			}
+		}
+	}()
+	// listen for ACK/NACK
+	ack, nack = amqpChan.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
+	amqpChan.Confirm(false)
+	wlog.WithFields(log.Fields{
+		"name":       a.Config.Exchange,
+		"type":       a.Config.ExchangeType,
+		"durable":    a.Config.Durable,
+		"autoDelete": a.Config.AutoDelete,
+		"internal":   a.Config.Internal,
+	}).Debug("declaring exchange")
+	if err = amqpChan.ExchangeDeclare(a.Config.Exchange, a.Config.ExchangeType,
+		a.Config.Durable, a.Config.AutoDelete, a.Config.Internal, false, nil); err != nil {
+		amqpChan.Close()
+		wlog.WithField("error", err).Panic("error declaring exchange")
+	}
+	return ack, nack
+}
+
+func (a *AMQPOutput) makePublishing(jur gracc.Record, wlog *log.Entry) *amqp.Publishing {
+	var pub amqp.Publishing
+	switch a.Config.Format {
+	case "raw":
+		pub.ContentType = "text/xml"
+		pub.Body = jur.Raw()
+	case "xml":
+		if j, err := xml.Marshal(jur); err != nil {
+			wlog.Error("error converting JobUsageRecord to xml")
+			wlog.Debugf("%v", jur)
+			return nil
+		} else {
+			pub.ContentType = "text/xml"
+			pub.Body = j
+		}
+	case "json":
+		if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
+			wlog.Error("error converting JobUsageRecord to json")
+			wlog.Debugf("%v", jur)
+			return nil
+		} else {
+			pub.ContentType = "application/json"
+			pub.Body = j
+		}
+	}
+	return &pub
 }
