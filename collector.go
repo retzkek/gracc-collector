@@ -88,25 +88,19 @@ func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 }
 
 func (g *GraccCollector) LogEvents() {
-	for {
-		switch <-g.Events {
+	for e := range g.Events {
+		g.statsm.Lock()
+		switch e {
 		case GOT_RECORD:
-			g.statsm.Lock()
 			g.Stats.Records++
-			g.statsm.Unlock()
 		case RECORD_ERROR:
-			g.statsm.Lock()
 			g.Stats.RecordErrors++
-			g.statsm.Unlock()
 		case GOT_REQUEST:
-			g.statsm.Lock()
 			g.Stats.Requests++
-			g.statsm.Unlock()
 		case REQUEST_ERROR:
-			g.statsm.Lock()
 			g.Stats.RequestErrors++
-			g.statsm.Unlock()
 		}
+		g.statsm.Unlock()
 	}
 }
 
