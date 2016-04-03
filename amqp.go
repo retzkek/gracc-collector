@@ -34,6 +34,7 @@ type AMQPOutput struct {
 	Channel     *amqp.Channel
 	ChannelOpen bool
 	outputChan  chan gracc.Record
+	recoverChan chan gracc.Record
 }
 
 func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
@@ -48,7 +49,11 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	}
 	a.outputChan = make(chan gracc.Record)
 	for i := 0; i < conf.Workers; i++ {
-		go StartWorker(i, a, a.outputChan)
+		go StartWorker(fmt.Sprintf("%d", i), a, a.outputChan)
+	}
+	a.recoverChan = make(chan gracc.Record)
+	for i := 0; i < conf.Workers; i++ {
+		go StartWorker(fmt.Sprintf("recover:%d", i), a, a.recoverChan)
 	}
 	return a, nil
 }
@@ -103,7 +108,7 @@ func (a *AMQPOutput) OutputChan() chan gracc.Record {
 }
 
 type AMQPWorker struct {
-	id         int
+	id         string
 	manager    *AMQPOutput
 	listenChan chan gracc.Record
 	wlog       *log.Entry
@@ -111,14 +116,14 @@ type AMQPWorker struct {
 	ack, nack  chan uint64
 }
 
-func StartWorker(id int, manager *AMQPOutput, ch chan gracc.Record) {
+func StartWorker(id string, manager *AMQPOutput, ch chan gracc.Record) {
 	var a = AMQPWorker{
 		id:         id,
 		manager:    manager,
 		listenChan: ch,
 	}
 	a.wlog = log.WithFields(log.Fields{
-		"output": fmt.Sprintf("AMQP:%d", id),
+		"output": fmt.Sprintf("AMQP:%s", id),
 	})
 	a.wlog.Info("starting worker")
 	var err error
@@ -149,9 +154,9 @@ func StartWorker(id int, manager *AMQPOutput, ch chan gracc.Record) {
 			a.wlog.WithFields(log.Fields{
 				"error": err,
 			}).Warning("error publishing to channel")
-			// put record back in queue to resend, if possible
+			// put record into recovery queue
 			select {
-			case a.manager.outputChan <- jur:
+			case a.manager.recoverChan <- jur:
 			default:
 				a.wlog.Error("no workers available to handle record")
 			}
