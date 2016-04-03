@@ -194,7 +194,7 @@ func (a *AMQPOutput) OutputRecords(id int) {
 			"exchange":   a.Config.Exchange,
 			"routingKey": a.Config.RoutingKey,
 			"record":     jur.Id(),
-		}).Debug("record published")
+		}).Debug("record sent, waiting for ack")
 		// wait for ACK/NACK
 		select {
 		case tag := <-ack:
@@ -203,5 +203,5 @@ func (a *AMQPOutput) OutputRecords(id int) {
 			wlog.WithField("tag", tag).Warning("nack")
 		}
 	}
-	wlog.Warning("stopping worker")
+	wlog.Warning("worker exiting")
 }
