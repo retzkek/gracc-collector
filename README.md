@@ -69,6 +69,10 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 ## Release Notes
 
+### v0.01.09
+
+* Better handling for AMQP communication errors
+
 ### v0.01.08
 
 * Support multiple AMQP workers
