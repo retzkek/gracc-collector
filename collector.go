@@ -242,7 +242,7 @@ func (g *GraccCollector) ProcessXml(x string) error {
 	for _, o := range g.Outputs {
 		select {
 		case o.OutputChan() <- &jur:
-		case <-time.After(g.Config.Timeout * time.Second):
+		case <-time.After(g.Config.Timeout):
 			return fmt.Errorf("timed out waiting for %s output worker", o.Type())
 		}
 	}

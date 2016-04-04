@@ -50,10 +50,13 @@ func ReadConfig(file string) (*CollectorConfig, error) {
 			Internal:     false,
 			RoutingKey:   "",
 			Workers:      2,
+			Retry:        10,
 		},
 	}
 	if _, err := toml.DecodeFile(file, &conf); err != nil {
 		return nil, err
 	}
+	conf.Timeout = conf.Timeout * time.Second
+	conf.AMQP.Retry = conf.AMQP.Retry * time.Second
 	return &conf, nil
 }
