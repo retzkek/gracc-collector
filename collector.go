@@ -236,7 +236,7 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 func (g *GraccCollector) ProcessXml(x string) error {
 	g.Events <- GOT_RECORD
 	var jur gracc.JobUsageRecord
-	if err := jur.ParseXml([]byte(x)); err != nil {
+	if err := jur.ParseXML([]byte(x)); err != nil {
 		return err
 	}
 	for _, o := range g.Outputs {

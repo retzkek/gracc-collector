@@ -121,6 +121,7 @@ type AMQPWorker struct {
 	amqpChan   *amqp.Channel
 	ack, nack  chan uint64
 	closing    chan *amqp.Error
+	returns    chan amqp.Return
 }
 
 func StartWorker(id string, manager *AMQPOutput, ch chan gracc.Record) {
@@ -173,11 +174,7 @@ workerLoop:
 					"error": err,
 				}).Warning("error publishing to channel")
 				// put record into recovery queue
-				select {
-				case a.manager.recoverChan <- jur:
-				default:
-					a.wlog.Error("no workers available to handle record")
-				}
+				a.manager.recoverChan <- jur
 			}
 			a.wlog.WithFields(log.Fields{
 				"exchange":   a.manager.Config.Exchange,
@@ -203,6 +200,33 @@ func (a *AMQPWorker) setupChan() {
 	// listen for ACK/NACK
 	a.ack, a.nack = a.amqpChan.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
 	a.amqpChan.Confirm(false)
+	// listen for returns
+	a.returns = a.amqpChan.NotifyReturn(make(chan amqp.Return))
+	go func() {
+		for r := range a.returns {
+			a.wlog.WithFields(log.Fields{
+				"code":     r.ReplyCode,
+				"text":     r.ReplyText,
+				"exchange": r.Exchange,
+				"key":      r.RoutingKey,
+			}).Warning("record returned")
+			// put record into recovery queue
+			var jur gracc.JobUsageRecord
+			var err error
+			switch r.ContentType {
+			case "text/xml":
+				err = jur.ParseXML(r.Body)
+			case "application/json":
+				err = jur.ParseJSON(r.Body)
+			}
+			if err != nil {
+				a.wlog.Error("error marshalling returned record")
+			} else {
+				a.manager.recoverChan <- &jur
+			}
+		}
+	}()
+	// declare exchange
 	a.wlog.WithFields(log.Fields{
 		"name":       a.manager.Config.Exchange,
 		"type":       a.manager.Config.ExchangeType,
