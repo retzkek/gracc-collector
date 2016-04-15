@@ -1,5 +1,5 @@
 gracc: *.go
-	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S` -X main.build_ref=`git rev-parse --verify HEAD --short`"
+	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S` -X main.build_ref=`git rev-parse --verify HEAD --short`" -o gracc
 
 scratch: *.go
 	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S`" -race -o gracc.scratch

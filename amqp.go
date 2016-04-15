@@ -98,7 +98,8 @@ func (a *AMQPOutput) setup() error {
 	for i := 0; i < a.Config.Workers; i++ {
 		go StartWorker(fmt.Sprintf("%d", i), a, a.outputChan)
 	}
-	a.recoverChan = make(chan gracc.Record)
+	// need enough buffer for a returned record from every worker
+	a.recoverChan = make(chan gracc.Record, a.Config.Workers+1)
 	for i := 0; i < a.Config.Workers; i++ {
 		go StartWorker(fmt.Sprintf("recover:%d", i), a, a.recoverChan)
 	}
@@ -124,6 +125,8 @@ type AMQPWorker struct {
 	returns    chan amqp.Return
 }
 
+// StartWorker starts a worker goroutine that reads reacords from ch and sends them to an AMQP channel
+// started on the manager's AMQP connection.
 func StartWorker(id string, manager *AMQPOutput, ch chan gracc.Record) {
 	var a = AMQPWorker{
 		id:         id,
@@ -164,17 +167,20 @@ workerLoop:
 				"routingKey": a.manager.Config.RoutingKey,
 				"record":     jur.Id(),
 			}).Debug("publishing record")
-			if err := a.amqpChan.Publish(
-				a.manager.Config.Exchange, // exchange
-				"",    // routing key
-				true,  // mandatory
-				false, // immediate
-				*pub); err != nil {
+			pubf := func() error {
+				return a.amqpChan.Publish(
+					a.manager.Config.Exchange, // exchange
+					"",    // routing key
+					true,  // mandatory
+					false, // immediate
+					*pub)
+			}
+			for err := pubf(); err != nil; err = pubf() {
 				a.wlog.WithFields(log.Fields{
 					"error": err,
-				}).Warning("error publishing to channel")
-				// put record into recovery queue
-				a.manager.recoverChan <- jur
+					"retry": a.manager.Config.Retry,
+				}).Warning("AMQP: error publishing to channel")
+				time.Sleep(a.manager.Config.Retry)
 			}
 			a.wlog.WithFields(log.Fields{
 				"exchange":   a.manager.Config.Exchange,
@@ -211,6 +217,7 @@ func (a *AMQPWorker) setupChan() {
 				"key":      r.RoutingKey,
 			}).Warning("record returned")
 			// put record into recovery queue
+			time.Sleep(a.manager.Config.Retry)
 			var jur gracc.JobUsageRecord
 			var err error
 			switch r.ContentType {
