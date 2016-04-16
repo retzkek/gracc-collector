@@ -120,7 +120,7 @@ type AMQPWorker struct {
 	listenChan chan gracc.Record
 	wlog       *log.Entry
 	amqpChan   *amqp.Channel
-	ack, nack  chan uint64
+	confirms   chan amqp.Confirmation
 	closing    chan *amqp.Error
 	returns    chan amqp.Return
 }
@@ -145,6 +145,8 @@ func StartWorker(id string, manager *AMQPOutput, ch chan gracc.Record) {
 	}
 
 	a.setupChan()
+
+	sentTag := 0
 
 workerLoop:
 	for {
@@ -182,18 +184,18 @@ workerLoop:
 				}).Warning("AMQP: error publishing to channel")
 				time.Sleep(a.manager.Config.Retry)
 			}
+			sentTag++
 			a.wlog.WithFields(log.Fields{
 				"exchange":   a.manager.Config.Exchange,
 				"routingKey": a.manager.Config.RoutingKey,
 				"record":     jur.Id(),
-			}).Debug("record sent, waiting for ack")
-			// wait for ACK/NACK
-			select {
-			case tag := <-a.ack:
-				a.wlog.WithField("tag", tag).Debug("ack")
-			case tag := <-a.nack:
-				a.wlog.WithField("tag", tag).Warning("nack")
-			}
+				"tag":        sentTag,
+			}).Debug("record sent")
+		case confirm := <-a.confirms:
+			a.wlog.WithFields(log.Fields{
+				"tag": confirm.DeliveryTag,
+				"ack": confirm.Ack,
+			}).Debug("confirm")
 		}
 	}
 	a.wlog.Warning("worker exiting")
@@ -203,9 +205,11 @@ func (a *AMQPWorker) setupChan() {
 	var err error
 	// listen for close events
 	a.closing = a.amqpChan.NotifyClose(make(chan *amqp.Error))
-	// listen for ACK/NACK
-	a.ack, a.nack = a.amqpChan.NotifyConfirm(make(chan uint64, 1), make(chan uint64, 1))
-	a.amqpChan.Confirm(false)
+	// listen for confirms
+	a.confirms = a.amqpChan.NotifyPublish(make(chan amqp.Confirmation, 1))
+	if err = a.amqpChan.Confirm(false); err != nil {
+		a.wlog.WithField("error", err).Error("Channel could not be put into confirm mode")
+	}
 	// listen for returns
 	a.returns = a.amqpChan.NotifyReturn(make(chan amqp.Return))
 	go func() {
