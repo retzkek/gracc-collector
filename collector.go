@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -8,6 +9,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
 	log "github.com/Sirupsen/logrus"
 	gracc "github.com/gracc-project/gracc-go"
@@ -206,34 +208,90 @@ func (g *GraccCollector) handleSuccess(w http.ResponseWriter, r *http.Request, r
 	fmt.Fprintf(w, "OK")
 }
 
+// ScanBundle is a split function for bufio.Scanner that splits the bundle
+// at each pipe/bar character "|" that does not occur in a single- or double-
+// quote delimited string.
+func ScanBundle(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	inString := false
+	escape := false
+	var stringDelim rune
+	for width, i := 0, 0; i < len(data); i += width {
+		var r rune
+		r, width = utf8.DecodeRune(data[i:])
+		switch r {
+		case '|':
+			if !inString {
+				return i + width, data[0:i], nil
+			}
+		case '\'', '"':
+			if inString && !escape && r == stringDelim {
+				inString = false
+			} else if !inString {
+				inString = true
+				stringDelim = r
+			}
+		}
+		escape = (r == '\\' && !escape)
+	}
+	// If we're at EOF, we have a final, non-terminated bundle. Return it.
+	if atEOF {
+		return len(data), data, bufio.ErrFinalToken
+	}
+	// Request more data.
+	return 0, nil, nil
+}
+
 func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 	received := 0
-	parts := strings.Split(bundle, "|")
-	for i := 0; i < len(parts); i++ {
-		switch parts[i] {
+	bs := bufio.NewScanner(strings.NewReader(bundle))
+	bs.Split(ScanBundle)
+ScannerLoop:
+	for bs.Scan() {
+		tok := bs.Text()
+		switch tok {
 		case "":
 			continue
 		case "replication":
-			if err := g.ProcessXml(parts[i+1]); err != nil {
+			var rec, raw, extra string
+			if bs.Scan() {
+				rec = bs.Text()
+			} else {
+				break ScannerLoop
+			}
+			if bs.Scan() {
+				raw = bs.Text()
+			} else {
+				break ScannerLoop
+			}
+			if bs.Scan() {
+				extra = bs.Text()
+			} else {
+				break ScannerLoop
+			}
+			if err := g.ProcessXml(rec, raw, extra); err != nil {
 				log.WithFields(log.Fields{
-					"index": i,
 					"error": err,
-				}).Error("error processing record")
-				g.Events <- RECORD_ERROR
-				return fmt.Errorf("error processing record")
+					"rec":   rec,
+					"raw":   raw,
+					"extra": extra,
+				}).Error("error processing record XML")
+				return fmt.Errorf("error processing replicated record")
 			}
 			received++
-			i += 2
 		}
 	}
-
+	// check for scanner errors
+	if err := bs.Err(); err != nil {
+		return fmt.Errorf("error parsing bundle: %s", err)
+	}
+	// check that we got all expected records
 	if received != bundlesize {
-		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", len(parts)-1, bundlesize)
+		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", received, bundlesize)
 	}
 	return nil
 }
 
-func (g *GraccCollector) ProcessXml(x string) error {
+func (g *GraccCollector) ProcessXml(x, raw, extra string) error {
 	g.Events <- GOT_RECORD
 	var jur gracc.JobUsageRecord
 	if err := jur.ParseXML([]byte(x)); err != nil {
@@ -243,6 +301,7 @@ func (g *GraccCollector) ProcessXml(x string) error {
 		select {
 		case o.OutputChan() <- &jur:
 		case <-time.After(g.Config.Timeout):
+			g.Events <- RECORD_ERROR
 			return fmt.Errorf("timed out waiting for %s output worker", o.Type())
 		}
 	}
