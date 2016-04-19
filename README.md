@@ -69,6 +69,11 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 ## Release Notes
 
+### v0.01.10
+
+* Handle AMQP returned records
+* Improved parsing of record bundles
+
 ### v0.01.09
 
 * Better handling for AMQP communication errors
