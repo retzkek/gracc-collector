@@ -1,8 +1,8 @@
-gracc: *.go
-	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S` -X main.build_ref=`git rev-parse --verify HEAD --short`" -o gracc
+gracc-collector: *.go
+	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S` -X main.build_ref=`git rev-parse --verify HEAD --short`" -o gracc-collector
 
 scratch: *.go
-	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S`" -race -o gracc.scratch
+	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S`" -race -o gracc-collector.scratch
 
 run:
 	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S`" -o gracc.run -race && ./gracc.run; rm -f gracc.run
@@ -27,4 +27,4 @@ servertest:
 	@echo
 
 clean:
-	rm -f gracc
+	rm -f gracc-collector

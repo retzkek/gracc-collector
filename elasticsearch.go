@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 
 	log "github.com/Sirupsen/logrus"
-	gracc "github.com/gracc-project/gracc-go"
+	"github.com/gracc-project/gracc-collector/gracc"
 	elastic "gopkg.in/olivere/elastic.v3"
 )
 

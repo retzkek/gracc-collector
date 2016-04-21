@@ -1,0 +1,176 @@
+package gracc
+
+import (
+	"encoding/json"
+	"encoding/xml"
+	"fmt"
+	"strings"
+	"time"
+
+	duration "github.com/channelmeter/iso8601duration"
+)
+
+type recordIdentity struct {
+	RecordId   string    `xml:"recordId,attr"`
+	CreateTime time.Time `xml:"createTime,attr"`
+}
+
+type jobIdentity struct {
+	GlobalJobId string
+	LocalJobId  string
+}
+
+type userIdentity struct {
+	GlobalUsername   string
+	LocalUserId      string
+	VOName           string
+	ReportableVOName string
+	CommonName       string
+}
+
+type field struct {
+	XMLName     xml.Name
+	Value       string `xml:",chardata"`
+	Description string `xml:"http://www.gridforum.org/2003/ur-wg description,attr"`
+	Unit        string `xml:"http://www.gridforum.org/2003/ur-wg unit,attr"`
+	Formula     string `xml:"http://www.gridforum.org/2003/ur-wg formula,attr"`
+	Metric      string `xml:"http://www.gridforum.org/2003/ur-wg metric,attr"`
+}
+
+func (f *field) flatten() map[string]string {
+	var r = make(map[string]string)
+	if f.Value != "" {
+		r[f.XMLName.Local] = f.Value
+	}
+	if f.Description != "" {
+		r[f.XMLName.Local+"_description"] = f.Description
+	}
+	if f.Unit != "" {
+		r[f.XMLName.Local+"_unit"] = f.Unit
+	}
+	if f.Formula != "" {
+		r[f.XMLName.Local+"_formula"] = f.Formula
+	}
+	if f.Metric != "" {
+		r[f.XMLName.Local+"_metric"] = f.Metric
+	}
+	return r
+}
+
+type cpuDuration struct {
+	UsageType string `xml:"http://www.gridforum.org/2003/ur-wg usageType,attr"`
+	Value     string `xml:",chardata"`
+}
+
+type resource struct {
+	XMLName     xml.Name
+	Value       string `xml:",chardata"`
+	Description string `xml:"http://www.gridforum.org/2003/ur-wg description,attr"`
+}
+
+func (r *resource) flatten() map[string]string {
+	var rr = map[string]string{
+		strings.Map(mapForKey, r.Description): r.Value,
+	}
+	return rr
+}
+
+func mapForKey(c rune) rune {
+	switch c {
+	case '.':
+		return '_'
+	}
+	return c
+}
+
+type JobUsageRecord struct {
+	XMLName        xml.Name `xml:"JobUsageRecord"`
+	RecordIdentity recordIdentity
+	JobIdentity    jobIdentity
+	UserIdentity   userIdentity
+	CpuDuration    []cpuDuration
+	StartTime      time.Time
+	EndTime        time.Time
+	Resource       []resource
+	Fields         []field `xml:",any"`
+	raw            []byte
+}
+
+func (jur *JobUsageRecord) ParseXML(xb []byte) error {
+	if err := xml.Unmarshal(xb, jur); err != nil {
+		return err
+	}
+	jur.raw = xb
+	return nil
+}
+
+func (jur *JobUsageRecord) ParseJSON(xb []byte) error {
+	if err := json.Unmarshal(xb, jur); err != nil {
+		return err
+	}
+	jur.raw = xb
+	return nil
+}
+
+// Id returns an identification string for the record.
+func (jur *JobUsageRecord) Id() string {
+	return jur.RecordIdentity.RecordId
+}
+
+// Raw returns the unaltered source of the record.
+func (jur *JobUsageRecord) Raw() []byte {
+	return jur.raw
+}
+
+// Flatten returns a flattened map of the Record.
+func (jur *JobUsageRecord) Flatten() map[string]string {
+	var r = map[string]string{
+		"RecordId":         jur.RecordIdentity.RecordId,
+		"CreateTime":       jur.RecordIdentity.CreateTime.Format(time.RFC3339),
+		"GlobalJobId":      jur.JobIdentity.GlobalJobId,
+		"LocalJobId":       jur.JobIdentity.LocalJobId,
+		"GlobalUsername":   jur.UserIdentity.GlobalUsername,
+		"LocalUserId":      jur.UserIdentity.LocalUserId,
+		"VOName":           jur.UserIdentity.VOName,
+		"ReportableVOName": jur.UserIdentity.ReportableVOName,
+		"CommonName":       jur.UserIdentity.CommonName,
+		"StartTime":        jur.StartTime.Format(time.RFC3339),
+		"EndTime":          jur.EndTime.Format(time.RFC3339),
+	}
+
+	for _, res := range jur.Resource {
+		for k, v := range res.flatten() {
+			r[k] = v
+		}
+	}
+
+	for _, f := range jur.Fields {
+		for k, v := range f.flatten() {
+			r[k] = v
+		}
+	}
+
+	for _, c := range jur.CpuDuration {
+		if c.UsageType == "user" {
+			r["CpuUserDuration"] = c.Value
+		} else if c.UsageType == "system" {
+			r["CpuSystemDuration"] = c.Value
+		}
+	}
+
+	r["CpuUserDuration"] = convertDurationToSeconds(r["CpuUserDuration"])
+	r["CpuSystemDuration"] = convertDurationToSeconds(r["CpuSystemDuration"])
+	r["WallDuration"] = convertDurationToSeconds(r["WallDuration"])
+	r["TimeDuration"] = convertDurationToSeconds(r["TimeDuration"])
+
+	return r
+}
+
+func convertDurationToSeconds(dur string) string {
+	d, err := duration.FromString(dur)
+	if err != nil {
+		return dur
+	}
+	sec := d.ToDuration().Seconds()
+	return fmt.Sprintf("%.0f", sec)
+}
