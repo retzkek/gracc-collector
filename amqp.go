@@ -7,7 +7,7 @@ import (
 	"time"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/gracc-project/gracc-collector/gracc"
+	"github.com/opensciencegrid/gracc-collector/gracc"
 	"github.com/streadway/amqp"
 )
 

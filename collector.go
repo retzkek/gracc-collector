@@ -12,7 +12,7 @@ import (
 	"unicode/utf8"
 
 	log "github.com/Sirupsen/logrus"
-	"github.com/gracc-project/gracc-collector/gracc"
+	"github.com/opensciencegrid/gracc-collector/gracc"
 )
 
 type GraccOutput interface {

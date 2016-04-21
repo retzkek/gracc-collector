@@ -5,7 +5,7 @@ import (
 
 	"github.com/Shopify/sarama"
 	log "github.com/Sirupsen/logrus"
-	"github.com/gracc-project/gracc-collector/gracc"
+	"github.com/opensciencegrid/gracc-collector/gracc"
 )
 
 type KafkaConfig struct {
