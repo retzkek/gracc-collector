@@ -1,56 +1,36 @@
-# GRÅCC - Gratia-Compatible Collector
+# Overview
 
-This is an all-new implementation of the [Open Science Grid](http://www.opensciencegrid.org) 
-[Gratia](https://sourceforge.net/projects/gratia/) accounting collector. It is intended
-to collect records forwarded from existing collectors and put them into other formats/datastores,
-including:
+The gracc-collector is a "Gratia-Compatible Collector" that acts as a 
+transitional interface between the obsolete [Gratia](https://sourceforge.net/projects/gratia/) accounting collector and probes and the new GRÅCC accounting system.
 
-* File (XML or JSON format)
-* Elasticsearch index
-* Kafka topic
-* RabbitMQ (or other AMQP 0.9.1-compatible broker)
+It listens for bundles of records (as would be sent via replication from a 
+Gratia collector or from a Gratia probe) on HTTP, processes the bundle into 
+individual usage records, and sends those to RabbitMQ or another 
+AMQP 0.9.1 broker.
 
-This is meant for testing, development, or backup purposes.
-
-## Configuration
+# Configuration
 
 The config file is [TOML](https://github.com/toml-lang/toml) format. 
 
-    address = ""         # address to listen on
-    port = "8888"        # port to listen on
-    loglevel = "debug"   # log level (debug, info, warn, error, fatal, panic)
-    
-    [file]
-    enabled = true       # output records to file, one record per file
-    path = '/tmp/gracc/{{.RecordIdentity.CreateTime.Format "2006/01/02/15/04"}}/'
-                         # path is the directory to create files in, supports dynamic naming based on 
-                         # templated attributes of the Record. 
-                         # Reference time: Mon Jan 2 15:04:05 -0700 MST 2006 
-    format = "xml"       # format (xml or json). filename is <recordID hash>.<format>
-    
-    [elasticsearch]
-    enabled = true                   # output records to Elasticsearch
-    host = "http://localhost:9200"   # Elasticsearch URL
-    index = "gracc-test"             # index
-    
-    [kafka]
-    enabled = true                   # output records to Kafka
-    brokers = ["localhost:9092"]     # list of brokers
-    topic = "gracc-osg"              # topic
+    address = "localhost" # address to listen on
+    port = "8888"         # port to listen on
+    loglevel = "debug"    # log level (debug, info, warn, error, fatal, panic)
     
     [AMQP]
-    enabled = true                   # output records to RabbitMQ
-    host = "localhost"
+    host = "localhost"    # AMQP broker
     port = "5672"
-    user = "guest"
-    password = "guest"
+    vhost = ""
     exchange = ""
     routingKey = ""
-    format = "xml"     
+    durable = true        # keep exchange between server restarts
+    autoDelete = true     # delete exchange when there are no remaining bindings
+    user = "guest"
+    password = "guest"
+    format = "raw"        # format to send record in (raw, xml, json)
 
-## Usage
+# Usage
 
-    gracc -c <config file> -l <log file>
+    gracc-collector -c <config file> -l <log file>
 
 Where `<log file>` can be "stdout", "stderr", or a file name.
 
@@ -67,7 +47,17 @@ control the process.
 See `sample/gracc.logrotate` for a sample logrotate configuration. Copy the file (with
 appropriate changes) to `/etc/logrotate.d/gracc`.
 
-## Release Notes
+# Release Notes
+
+### v0.02.00
+
+Significant rewrite to simplify while maintaining robust error handling.
+
+* Removed unneeded file, elasticsearch, and kafka outputs.
+* One AMQP channel is opened for each bundle received; the HTTP connection
+  from the probe or collector is not closed until all records are confirmed
+  by the AMQP broker. If an error occurs or a record is returned then a 500
+  error code is returned.
 
 ### v0.01.10
 

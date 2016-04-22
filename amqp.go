@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
+	"sync"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -12,7 +13,6 @@ import (
 )
 
 type AMQPConfig struct {
-	Enabled      bool
 	Host         string
 	Port         string
 	Vhost        string
@@ -25,18 +25,14 @@ type AMQPConfig struct {
 	AutoDelete   bool
 	Internal     bool
 	RoutingKey   string
-	Workers      int
 	Retry        time.Duration
 }
 
 type AMQPOutput struct {
-	Config      AMQPConfig
-	URI         string
-	Connection  *amqp.Connection
-	Channel     *amqp.Channel
-	ChannelOpen bool
-	outputChan  chan gracc.Record
-	recoverChan chan gracc.Record
+	Config     AMQPConfig
+	URI        string
+	connection *amqp.Connection
+	m          sync.Mutex
 }
 
 func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
@@ -44,7 +40,6 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 		Config: conf,
 		URI: "amqp://" + conf.User + ":" + conf.Password + "@" +
 			conf.Host + ":" + conf.Port + "/" + conf.Vhost,
-		ChannelOpen: false,
 	}
 	if err := a.setup(); err != nil {
 		return nil, err
@@ -52,9 +47,17 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	return a, nil
 }
 
+func (a *AMQPOutput) connect() error {
+	a.m.Lock()
+	defer a.m.Unlock()
+	var err error
+	a.connection, err = amqp.Dial(a.URI)
+	return err
+}
+
 func (a *AMQPOutput) setup() error {
-	if a.Connection != nil {
-		a.Connection.Close()
+	if a.connection != nil {
+		a.connection.Close()
 	}
 	log.WithFields(log.Fields{
 		"user":  a.Config.User,
@@ -63,15 +66,16 @@ func (a *AMQPOutput) setup() error {
 		"port":  a.Config.Port,
 	}).Info("AMQP: connecting to RabbitMQ")
 	var err error
-	for a.Connection, err = amqp.Dial(a.URI); err != nil; a.Connection, err = amqp.Dial(a.URI) {
+	for err = a.connect(); err != nil; err = a.connect() {
 		log.WithFields(log.Fields{
 			"error": err,
 			"retry": a.Config.Retry,
 		}).Error("AMQP: error connecting to RabbitMQ")
 		time.Sleep(a.Config.Retry)
 	}
+	log.Info("AMQP: connection established")
 	// listen for close events
-	closing := a.Connection.NotifyClose(make(chan *amqp.Error))
+	closing := a.connection.NotifyClose(make(chan *amqp.Error))
 	go func() {
 		for c := range closing {
 			log.WithFields(log.Fields{
@@ -84,7 +88,7 @@ func (a *AMQPOutput) setup() error {
 		}
 	}()
 	// listen for blocking events
-	blockings := a.Connection.NotifyBlocked(make(chan amqp.Blocking))
+	blockings := a.connection.NotifyBlocked(make(chan amqp.Blocking))
 	go func() {
 		for b := range blockings {
 			if b.Active {
@@ -94,174 +98,193 @@ func (a *AMQPOutput) setup() error {
 			}
 		}
 	}()
-	a.outputChan = make(chan gracc.Record)
-	for i := 0; i < a.Config.Workers; i++ {
-		go StartWorker(fmt.Sprintf("%d", i), a, a.outputChan)
-	}
-	// need enough buffer for a returned record from every worker
-	a.recoverChan = make(chan gracc.Record, a.Config.Workers+1)
-	for i := 0; i < a.Config.Workers; i++ {
-		go StartWorker(fmt.Sprintf("recover:%d", i), a, a.recoverChan)
-	}
 	return nil
 }
 
-func (a *AMQPOutput) Type() string {
-	return "AMQP"
+// OpenChannel locks the connection and opens a new channel.
+func (a *AMQPOutput) OpenChannel() (*amqp.Channel, error) {
+	a.m.Lock()
+	defer a.m.Unlock()
+	if a.connection == nil {
+		return nil, fmt.Errorf("connection is not open")
+	}
+	return a.connection.Channel()
 }
 
-func (a *AMQPOutput) OutputChan() chan gracc.Record {
-	return a.outputChan
-}
-
+// AMQPWorker manages an AMQP channel, including
+// handling confirms, returns, and the channel or
+// connection being closed.
 type AMQPWorker struct {
-	id         string
-	manager    *AMQPOutput
-	listenChan chan gracc.Record
-	wlog       *log.Entry
-	amqpChan   *amqp.Channel
-	confirms   chan amqp.Confirmation
-	closing    chan *amqp.Error
-	returns    chan amqp.Return
+	Channel  *amqp.Channel
+	Config   AMQPConfig
+	confirms chan amqp.Confirmation
+	closing  chan *amqp.Error
+	returns  chan amqp.Return
+	flow     chan bool
+	lastTag  uint64
 }
 
-// StartWorker starts a worker goroutine that reads reacords from ch and sends them to an AMQP channel
-// started on the manager's AMQP connection.
-func StartWorker(id string, manager *AMQPOutput, ch chan gracc.Record) {
-	var a = AMQPWorker{
-		id:         id,
-		manager:    manager,
-		listenChan: ch,
-	}
-	a.wlog = log.WithFields(log.Fields{
-		"output": fmt.Sprintf("AMQP:%s", id),
+// Initialize and return a new worker. bundleSize is the expected number
+// of records this worker will handle.
+func (a *AMQPOutput) NewWorker(bundleSize int) (*AMQPWorker, error) {
+	ll := log.WithFields(log.Fields{
+		"where": "AMQPOutput.NewWorker",
 	})
-	a.wlog.Info("starting worker")
-	var err error
-	a.amqpChan, err = a.manager.Connection.Channel()
+	log.Debug("starting AMQP worker")
+	// open channel
+	ch, err := a.OpenChannel()
 	if err != nil {
-		a.wlog.WithField("error", err).Error("error opening channel")
-		return
+		ll.Error(err)
+		return nil, fmt.Errorf("error opening channel")
 	}
+	// put channel into confirm mode
+	if err = ch.Confirm(false); err != nil {
+		ll.Error(err)
+		return nil, fmt.Errorf("Channel could not be put into confirm mode")
+	}
+	// declare exchange
+	ll.WithFields(log.Fields{
+		"name":       a.Config.Exchange,
+		"type":       a.Config.ExchangeType,
+		"durable":    a.Config.Durable,
+		"autoDelete": a.Config.AutoDelete,
+		"internal":   a.Config.Internal,
+	}).Debug("declaring exchange")
+	if err = ch.ExchangeDeclare(a.Config.Exchange,
+		a.Config.ExchangeType,
+		a.Config.Durable,
+		a.Config.AutoDelete,
+		a.Config.Internal,
+		false,
+		nil); err != nil {
+		ch.Close()
+		ll.Error(err)
+		return nil, fmt.Errorf("error declaring exchange")
+	}
+	return &AMQPWorker{
+		Channel:  ch,
+		Config:   a.Config,
+		confirms: ch.NotifyPublish(make(chan amqp.Confirmation, bundleSize)),
+		closing:  ch.NotifyClose(make(chan *amqp.Error, 1)),
+		returns:  ch.NotifyReturn(make(chan amqp.Return, bundleSize)),
+		flow:     ch.NotifyFlow(make(chan bool)),
+	}, nil
+}
 
-	a.setupChan()
+// PublishRecords sends the Record to the AMQP broker. It does not
+// wait for confirmation! Call Wait() to wait for confirms and returns.
+func (w *AMQPWorker) PublishRecord(rec gracc.Record) error {
+	ll := log.WithFields(log.Fields{
+		"where": "AMQPWorker.PublishRecord",
+	})
+	// check for flow control
+	select {
+	case f := <-w.flow:
+		if f {
+			return fmt.Errorf("under flow control")
+		}
+	default:
+	}
+	// publish record
+	pub := w.makePublishing(rec)
+	if pub == nil {
+		return fmt.Errorf("error making AMQP publishing from Record")
+	}
+	ll.WithFields(log.Fields{
+		"exchange":   w.Config.Exchange,
+		"routingKey": w.Config.RoutingKey,
+		"record":     rec.Id(),
+	}).Debug("publishing record")
+	if err := w.Channel.Publish(
+		w.Config.Exchange, // exchange
+		"",                // routing key
+		true,              // mandatory
+		false,             // immediate
+		*pub); err != nil {
+		ll.Error(err)
+		return fmt.Errorf("error publishing to channel")
+	}
+	w.lastTag++
+	ll.WithFields(log.Fields{
+		"exchange":   w.Config.Exchange,
+		"routingKey": w.Config.RoutingKey,
+		"record":     rec.Id(),
+		"tag":        w.lastTag,
+	}).Debug("record sent")
+	return nil
+}
 
-	sentTag := 0
-
-workerLoop:
+// Wait will wait for confirms for all publishings sent so far.
+// It will also listen for return, and will return an error if
+// a record is returned.
+func (w *AMQPWorker) Wait() error {
+	ll := log.WithFields(log.Fields{
+		"where": "AMQPWorker.Wait",
+	})
+	if w.lastTag < 1 {
+		return fmt.Errorf("no records were sent")
+	}
+	var returns, nacks int
+WaitLoop:
 	for {
 		select {
-		case c := <-a.closing:
-			a.wlog.WithFields(log.Fields{
+		case c := <-w.closing:
+			ll.WithFields(log.Fields{
 				"code":             c.Code,
 				"reason":           c.Reason,
 				"server-initiated": c.Server,
 				"can-recover":      c.Recover,
-			}).Warning("channel closed")
-			break workerLoop
-		case jur := <-a.listenChan:
-			pub := a.makePublishing(jur)
-			if pub == nil {
-				continue
-			}
-			a.wlog.WithFields(log.Fields{
-				"exchange":   a.manager.Config.Exchange,
-				"routingKey": a.manager.Config.RoutingKey,
-				"record":     jur.Id(),
-			}).Debug("publishing record")
-			pubf := func() error {
-				return a.amqpChan.Publish(
-					a.manager.Config.Exchange, // exchange
-					"",    // routing key
-					true,  // mandatory
-					false, // immediate
-					*pub)
-			}
-			for err := pubf(); err != nil; err = pubf() {
-				a.wlog.WithFields(log.Fields{
-					"error": err,
-					"retry": a.manager.Config.Retry,
-				}).Warning("AMQP: error publishing to channel")
-				time.Sleep(a.manager.Config.Retry)
-			}
-			sentTag++
-			a.wlog.WithFields(log.Fields{
-				"exchange":   a.manager.Config.Exchange,
-				"routingKey": a.manager.Config.RoutingKey,
-				"record":     jur.Id(),
-				"tag":        sentTag,
-			}).Debug("record sent")
-		case confirm := <-a.confirms:
-			a.wlog.WithFields(log.Fields{
+			}).Error("channel closed")
+			return fmt.Errorf("channel closed while waiting for confirms")
+		case ret := <-w.returns:
+			ll.WithFields(log.Fields{
+				"code":   ret.ReplyCode,
+				"reason": ret.ReplyText,
+			}).Warning("record returned")
+			returns++
+		case confirm := <-w.confirms:
+			ll.WithFields(log.Fields{
 				"tag": confirm.DeliveryTag,
 				"ack": confirm.Ack,
 			}).Debug("confirm")
-		}
-	}
-	a.wlog.Warning("worker exiting")
-}
-
-func (a *AMQPWorker) setupChan() {
-	var err error
-	// listen for close events
-	a.closing = a.amqpChan.NotifyClose(make(chan *amqp.Error))
-	// listen for confirms
-	a.confirms = a.amqpChan.NotifyPublish(make(chan amqp.Confirmation, 1))
-	if err = a.amqpChan.Confirm(false); err != nil {
-		a.wlog.WithField("error", err).Error("Channel could not be put into confirm mode")
-	}
-	// listen for returns
-	a.returns = a.amqpChan.NotifyReturn(make(chan amqp.Return))
-	go func() {
-		for r := range a.returns {
-			a.wlog.WithFields(log.Fields{
-				"code":     r.ReplyCode,
-				"text":     r.ReplyText,
-				"exchange": r.Exchange,
-				"key":      r.RoutingKey,
-			}).Warning("record returned")
-			// put record into recovery queue
-			time.Sleep(a.manager.Config.Retry)
-			var jur gracc.JobUsageRecord
-			var err error
-			switch r.ContentType {
-			case "text/xml":
-				err = jur.ParseXML(r.Body)
-			case "application/json":
-				err = jur.ParseJSON(r.Body)
+			if !confirm.Ack {
+				nacks++
 			}
-			if err != nil {
-				a.wlog.Error("error marshalling returned record")
-			} else {
-				a.manager.recoverChan <- &jur
+			if confirm.DeliveryTag >= w.lastTag {
+				break WaitLoop
 			}
 		}
-	}()
-	// declare exchange
-	a.wlog.WithFields(log.Fields{
-		"name":       a.manager.Config.Exchange,
-		"type":       a.manager.Config.ExchangeType,
-		"durable":    a.manager.Config.Durable,
-		"autoDelete": a.manager.Config.AutoDelete,
-		"internal":   a.manager.Config.Internal,
-	}).Debug("declaring exchange")
-	if err = a.amqpChan.ExchangeDeclare(a.manager.Config.Exchange, a.manager.Config.ExchangeType,
-		a.manager.Config.Durable, a.manager.Config.AutoDelete, a.manager.Config.Internal, false, nil); err != nil {
-		a.amqpChan.Close()
-		a.wlog.WithField("error", err).Panic("error declaring exchange")
 	}
+	if returns > 0 {
+		return fmt.Errorf("%d records were returned", returns)
+	}
+	if nacks > 0 {
+		return fmt.Errorf("%d records were not successfully sent", nacks)
+	}
+	log.Debug("all records sent successfully")
+	return nil
 }
 
-func (a *AMQPWorker) makePublishing(jur gracc.Record) *amqp.Publishing {
+// Close closes the AMQP channel and retires the worker.
+// If you want to make sure all records were recieved call Wait() first!
+func (w *AMQPWorker) Close() error {
+	log.Debug("closing AMQP worker")
+	return w.Channel.Close()
+}
+
+func (w *AMQPWorker) makePublishing(jur gracc.Record) *amqp.Publishing {
+	ll := log.WithFields(log.Fields{
+		"where": "AMQPWorker.makePublishing",
+	})
 	var pub amqp.Publishing
-	switch a.manager.Config.Format {
+	switch w.Config.Format {
 	case "raw":
 		pub.ContentType = "text/xml"
 		pub.Body = jur.Raw()
 	case "xml":
 		if j, err := xml.Marshal(jur); err != nil {
-			a.wlog.Error("error converting JobUsageRecord to xml")
-			a.wlog.Debugf("%v", jur)
+			ll.Error("error converting JobUsageRecord to xml")
+			ll.Debugf("%v", jur)
 			return nil
 		} else {
 			pub.ContentType = "text/xml"
@@ -269,8 +292,8 @@ func (a *AMQPWorker) makePublishing(jur gracc.Record) *amqp.Publishing {
 		}
 	case "json":
 		if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
-			a.wlog.Error("error converting JobUsageRecord to json")
-			a.wlog.Debugf("%v", jur)
+			ll.Error("error converting JobUsageRecord to json")
+			ll.Debugf("%v", jur)
 			return nil
 		} else {
 			pub.ContentType = "application/json"

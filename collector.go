@@ -8,19 +8,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"time"
 	"unicode/utf8"
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/opensciencegrid/gracc-collector/gracc"
 )
-
-type GraccOutput interface {
-	// Type returns the type of the output.
-	Type() string
-	// OutputChan returns a channel to send a record to be output
-	OutputChan() chan gracc.Record
-}
 
 type CollectorStats struct {
 	Records       uint64
@@ -39,10 +31,10 @@ const (
 )
 
 type GraccCollector struct {
-	Config  *CollectorConfig
-	Outputs []GraccOutput
-	Stats   CollectorStats
-	statsm  sync.Mutex
+	Config *CollectorConfig
+	Output *AMQPOutput
+	Stats  CollectorStats
+	m      sync.Mutex
 
 	Events chan Event
 }
@@ -51,39 +43,14 @@ type GraccCollector struct {
 func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 	var g GraccCollector
 	g.Config = conf
-	g.Outputs = make([]GraccOutput, 0, 4)
 
 	g.Events = make(chan Event)
 	go g.LogEvents()
 
-	var err error
-	if conf.File.Enabled {
-		var f *FileOutput
-		if f, err = InitFile(conf.File); err != nil {
-			return nil, err
-		}
-		g.Outputs = append(g.Outputs, f)
-	}
-	if conf.Elasticsearch.Enabled {
-		var e *ElasticsearchOutput
-		if e, err = InitElasticsearch(conf.Elasticsearch); err != nil {
-			return nil, err
-		}
-		g.Outputs = append(g.Outputs, e)
-	}
-	if conf.Kafka.Enabled {
-		var k *KafkaOutput
-		if k, err = InitKafka(conf.Kafka); err != nil {
-			return nil, err
-		}
-		g.Outputs = append(g.Outputs, k)
-	}
-	if conf.AMQP.Enabled {
-		var a *AMQPOutput
-		if a, err = InitAMQP(conf.AMQP); err != nil {
-			return nil, err
-		}
-		g.Outputs = append(g.Outputs, a)
+	if o, err := InitAMQP(conf.AMQP); err != nil {
+		return nil, err
+	} else {
+		g.Output = o
 	}
 
 	return &g, nil
@@ -91,7 +58,7 @@ func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 
 func (g *GraccCollector) LogEvents() {
 	for e := range g.Events {
-		g.statsm.Lock()
+		g.m.Lock()
 		switch e {
 		case GOT_RECORD:
 			g.Stats.Records++
@@ -102,15 +69,15 @@ func (g *GraccCollector) LogEvents() {
 		case REQUEST_ERROR:
 			g.Stats.RequestErrors++
 		}
-		g.statsm.Unlock()
+		g.m.Unlock()
 	}
 }
 
 func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 	enc := json.NewEncoder(w)
-	g.statsm.Lock()
+	g.m.Lock()
 	stats := g.Stats
-	g.statsm.Unlock()
+	g.m.Unlock()
 	if err := enc.Encode(stats); err != nil {
 		http.Error(w, "error writing stats", http.StatusInternalServerError)
 	}
@@ -241,7 +208,17 @@ func ScanBundle(data []byte, atEOF bool) (advance int, token []byte, err error) 
 	return 0, nil, nil
 }
 
+// ProcessBundle parses a bundle and publishes records to AMQP broker.
 func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
+	// setup AMQP channel
+	w, err := g.Output.NewWorker(bundlesize)
+	if err != nil {
+		log.Error("error starting AMQP worker")
+		return err
+	}
+	defer w.Close()
+
+	// Parse bundle
 	received := 0
 	bs := bufio.NewScanner(strings.NewReader(bundle))
 	bs.Split(ScanBundle)
@@ -252,30 +229,31 @@ ScannerLoop:
 		case "":
 			continue
 		case "replication":
-			var rec, raw, extra string
-			if bs.Scan() {
-				rec = bs.Text()
-			} else {
-				break ScannerLoop
+			parts := make(map[string]string, 3)
+			for _, p := range []string{"rec", "raw", "extra"} {
+				if bs.Scan() {
+					parts[p] = bs.Text()
+				} else {
+					break ScannerLoop
+				}
 			}
-			if bs.Scan() {
-				raw = bs.Text()
-			} else {
-				break ScannerLoop
-			}
-			if bs.Scan() {
-				extra = bs.Text()
-			} else {
-				break ScannerLoop
-			}
-			if err := g.ProcessXml(rec, raw, extra); err != nil {
+			g.Events <- GOT_RECORD
+			// publish record
+			var jur gracc.JobUsageRecord
+			if err := jur.ParseXML([]byte(parts["rec"])); err != nil {
 				log.WithFields(log.Fields{
 					"error": err,
-					"rec":   rec,
-					"raw":   raw,
-					"extra": extra,
+					"rec":   parts["rec"],
+					"raw":   parts["raw"],
+					"extra": parts["extra"],
 				}).Error("error processing record XML")
+				g.Events <- RECORD_ERROR
 				return fmt.Errorf("error processing replicated record")
+			}
+			if err := w.PublishRecord(&jur); err != nil {
+				log.Error(err)
+				g.Events <- RECORD_ERROR
+				return fmt.Errorf("error publishing record")
 			}
 			received++
 		}
@@ -288,22 +266,9 @@ ScannerLoop:
 	if received != bundlesize {
 		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", received, bundlesize)
 	}
-	return nil
-}
-
-func (g *GraccCollector) ProcessXml(x, raw, extra string) error {
-	g.Events <- GOT_RECORD
-	var jur gracc.JobUsageRecord
-	if err := jur.ParseXML([]byte(x)); err != nil {
+	// wait for confirms that all records were received and routed
+	if err := w.Wait(); err != nil {
 		return err
-	}
-	for _, o := range g.Outputs {
-		select {
-		case o.OutputChan() <- &jur:
-		case <-time.After(g.Config.Timeout):
-			g.Events <- RECORD_ERROR
-			return fmt.Errorf("timed out waiting for %s output worker", o.Type())
-		}
 	}
 	return nil
 }
