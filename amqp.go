@@ -47,15 +47,9 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	return a, nil
 }
 
-func (a *AMQPOutput) connect() error {
+func (a *AMQPOutput) setup() error {
 	a.m.Lock()
 	defer a.m.Unlock()
-	var err error
-	a.connection, err = amqp.Dial(a.URI)
-	return err
-}
-
-func (a *AMQPOutput) setup() error {
 	if a.connection != nil {
 		a.connection.Close()
 	}
@@ -66,7 +60,11 @@ func (a *AMQPOutput) setup() error {
 		"port":  a.Config.Port,
 	}).Info("AMQP: connecting to RabbitMQ")
 	var err error
-	for err = a.connect(); err != nil; err = a.connect() {
+	connect := func() error {
+		a.connection, err = amqp.Dial(a.URI)
+		return err
+	}
+	for err = connect(); err != nil; err = connect() {
 		log.WithFields(log.Fields{
 			"error": err,
 			"retry": a.Config.Retry,
