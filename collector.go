@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 	"unicode/utf8"
 
 	log "github.com/Sirupsen/logrus"
@@ -83,72 +84,86 @@ func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Request is a wrapper struct for passing around an HTTP request
+// and associated response writer and metadata
+type Request struct {
+	w     http.ResponseWriter
+	r     *http.Request
+	log   *log.Entry
+	start time.Time
+}
+
 func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.Events <- GOT_REQUEST
-	rlog := log.WithFields(log.Fields{
-		"address": r.RemoteAddr,
-		"length":  r.ContentLength,
-		"agent":   r.UserAgent(),
-		"path":    r.URL.EscapedPath(),
-	})
+	req := &Request{
+		w: w,
+		r: r,
+		log: log.WithFields(log.Fields{
+			"address":  r.RemoteAddr,
+			"length":   r.ContentLength,
+			"agent":    r.UserAgent(),
+			"url_path": r.URL.EscapedPath(),
+		}),
+		start: time.Now(),
+	}
 	r.ParseForm()
-	if err := g.checkRequiredKeys(w, r, []string{"command"}); err != nil {
+	if err := g.checkRequiredKeys(req, []string{"command"}); err != nil {
 		g.Events <- REQUEST_ERROR
-		g.handleError(w, r, rlog, err, http.StatusBadRequest)
+		g.handleError(req, err, http.StatusBadRequest)
 		return
 	}
 	command := r.FormValue("command")
 	switch command {
 	case "update":
-		g.handleUpdate(w, r, rlog)
+		g.handleUpdate(req)
 	default:
 		g.Events <- REQUEST_ERROR
-		g.handleError(w, r, rlog, fmt.Errorf("unknown command"), http.StatusBadRequest)
+		g.handleError(req, fmt.Errorf("unknown command"), http.StatusBadRequest)
 	}
 }
 
-func (g *GraccCollector) handleUpdate(w http.ResponseWriter, r *http.Request, rlog *log.Entry) {
-	if err := g.checkRequiredKeys(w, r, []string{"arg1", "from"}); err != nil {
+func (g *GraccCollector) handleUpdate(req *Request) {
+	if err := g.checkRequiredKeys(req, []string{"arg1", "from"}); err != nil {
 		g.Events <- REQUEST_ERROR
-		g.handleError(w, r, rlog, err, http.StatusBadRequest)
+		g.handleError(req, err, http.StatusBadRequest)
 		return
 	}
 	updateLogger := log.WithFields(log.Fields{
-		"from": r.FormValue("from"),
+		"from": req.r.FormValue("from"),
 	})
-	if r.FormValue("arg1") == "xxx" {
+	if req.r.FormValue("arg1") == "xxx" {
 		updateLogger.Info("received ping")
-		g.handleSuccess(w, r, rlog)
+		g.handleSuccess(req)
 		return
 	} else {
-		if err := g.checkRequiredKeys(w, r, []string{"bundlesize"}); err != nil {
+		if err := g.checkRequiredKeys(req, []string{"bundlesize"}); err != nil {
 			g.Events <- REQUEST_ERROR
-			g.handleError(w, r, rlog, err, http.StatusBadRequest)
+			g.handleError(req, err, http.StatusBadRequest)
 			return
 		}
-		bundlesize, err := strconv.Atoi(r.FormValue("bundlesize"))
+		bundlesize, err := strconv.Atoi(req.r.FormValue("bundlesize"))
 		if err != nil {
 			g.Events <- REQUEST_ERROR
 			updateLogger.WithField("error", err).Error("error handling update")
-			g.handleError(w, r, rlog, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
+			g.handleError(req, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
 			return
 		}
-		if err := g.ProcessBundle(r.FormValue("arg1"), bundlesize); err == nil {
-			updateLogger.WithField("bundlesize", r.FormValue("bundlesize")).Info("received update")
-			g.handleSuccess(w, r, rlog)
+		if err := g.ProcessBundle(req.r.FormValue("arg1"), bundlesize); err == nil {
+			updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received update")
+			g.handleSuccess(req)
 			return
 		} else {
 			g.Events <- REQUEST_ERROR
 			updateLogger.WithField("error", err).Error("error handling update")
-			g.handleError(w, r, rlog, fmt.Errorf("error processing bundle"), http.StatusInternalServerError)
+			g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
 			return
 		}
 	}
 }
 
-func (g *GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Request, keys []string) error {
+func (g *GraccCollector) checkRequiredKeys(req *Request, keys []string) error {
 	for _, k := range keys {
-		if r.FormValue(k) == "" {
+		if req.r.FormValue(k) == "" {
 			err := fmt.Sprintf("no %v", k)
 			return fmt.Errorf(err)
 		}
@@ -156,23 +171,25 @@ func (g *GraccCollector) checkRequiredKeys(w http.ResponseWriter, r *http.Reques
 	return nil
 }
 
-func (g *GraccCollector) handleError(w http.ResponseWriter, r *http.Request, rlog *log.Entry, err error, code int) {
+func (g *GraccCollector) handleError(req *Request, err error, code int) {
 	res := fmt.Sprintf("Error: %s", err)
-	rlog.WithFields(log.Fields{
+	req.log.WithFields(log.Fields{
 		"response":      res,
 		"response-code": code,
 		"error":         err,
+		"response-time": time.Since(req.start).Nanoseconds(),
 	}).Info("handled request")
-	w.WriteHeader(code)
-	fmt.Fprint(w, res)
+	req.w.WriteHeader(code)
+	fmt.Fprint(req.w, res)
 }
 
-func (g *GraccCollector) handleSuccess(w http.ResponseWriter, r *http.Request, rlog *log.Entry) {
-	rlog.WithFields(log.Fields{
+func (g *GraccCollector) handleSuccess(req *Request) {
+	req.log.WithFields(log.Fields{
 		"response":      "OK",
 		"response-code": 200,
+		"response-time": time.Since(req.start).Nanoseconds(),
 	}).Info("handled request")
-	fmt.Fprintf(w, "OK")
+	fmt.Fprintf(req.w, "OK")
 }
 
 // ScanBundle is a split function for bufio.Scanner that splits the bundle
