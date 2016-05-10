@@ -7,11 +7,13 @@ import (
 )
 
 type CollectorConfig struct {
-	Address  string
-	Port     string
-	Timeout  time.Duration
-	LogLevel string
-	AMQP     AMQPConfig
+	Address         string
+	Port            string
+	Timeout         time.Duration
+	LogLevel        string
+	AMQP            AMQPConfig
+	StartBufferSize int
+	MaxBufferSize   int
 }
 
 func ReadConfig(file string) (*CollectorConfig, error) {
@@ -32,6 +34,8 @@ func ReadConfig(file string) (*CollectorConfig, error) {
 			RoutingKey:   "",
 			Retry:        10,
 		},
+		StartBufferSize: 4096,
+		MaxBufferSize:   512 * 1024,
 	}
 	if _, err := toml.DecodeFile(file, &conf); err != nil {
 		return nil, err

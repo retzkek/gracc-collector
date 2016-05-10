@@ -238,6 +238,7 @@ func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
 	// Parse bundle
 	received := 0
 	bs := bufio.NewScanner(strings.NewReader(bundle))
+	bs.Buffer(make([]byte, g.Config.StartBufferSize), g.Config.MaxBufferSize)
 	bs.Split(ScanBundle)
 ScannerLoop:
 	for bs.Scan() {
