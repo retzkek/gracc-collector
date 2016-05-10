@@ -193,7 +193,7 @@ func (g *GraccCollector) handleSuccess(req *Request) {
 }
 
 // ScanBundle is a split function for bufio.Scanner that splits the bundle
-// at each pipe/bar character "|" that does not occur in a single- or double-
+// at each pipe/bar character "|" that does not occur in a double-
 // quote delimited string.
 func ScanBundle(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	inString := false
@@ -207,7 +207,7 @@ func ScanBundle(data []byte, atEOF bool) (advance int, token []byte, err error) 
 			if !inString {
 				return i + width, data[0:i], nil
 			}
-		case '\'', '"':
+		case '"':
 			if inString && !escape && r == stringDelim {
 				inString = false
 			} else if !inString {
