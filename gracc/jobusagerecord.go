@@ -26,6 +26,7 @@ type userIdentity struct {
 	VOName           string
 	ReportableVOName string
 	CommonName       string
+	DN               string
 }
 
 type field struct {
@@ -202,6 +203,7 @@ func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 		"VOName":           jur.UserIdentity.VOName,
 		"ReportableVOName": jur.UserIdentity.ReportableVOName,
 		"CommonName":       jur.UserIdentity.CommonName,
+		"DN":               jur.UserIdentity.DN,
 		"StartTime":        jur.StartTime.Format(time.RFC3339),
 		"EndTime":          jur.EndTime.Format(time.RFC3339),
 		"RawXML":           string(jur.Raw()),
