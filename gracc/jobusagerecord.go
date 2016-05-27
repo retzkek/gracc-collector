@@ -81,13 +81,13 @@ type timeDuration struct {
 
 func (t *timeDuration) flatten() map[string]interface{} {
 	k := "unknown"
-	if t.Description != "" {
-		k = strings.Map(mapForKey, t.Description)
+	if t.Type != "" {
+		k = strings.Map(mapForKey, t.Type)
 	}
 	var rr = make(map[string]interface{})
 	rr[k] = convertDurationToSeconds(t.Value)
-	if t.Type != "" {
-		rr[k+"_type"] = t.Type
+	if t.Description != "" {
+		rr[k+"_description"] = t.Description
 	}
 	return rr
 }
@@ -101,14 +101,14 @@ type timeInstant struct {
 
 func (t *timeInstant) flatten() map[string]interface{} {
 	k := "unknown"
-	if t.Description != "" {
-		k = strings.Map(mapForKey, t.Description)
+	if t.Type != "" {
+		k = strings.Map(mapForKey, t.Type)
 	}
 	var rr = map[string]interface{}{
 		k: t.Value.Format(time.RFC3339),
 	}
-	if t.Type != "" {
-		rr[k+"_type"] = t.Type
+	if t.Description != "" {
+		rr[k+"_description"] = t.Description
 	}
 	return rr
 }
