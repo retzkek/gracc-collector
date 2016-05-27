@@ -1,0 +1,25 @@
+{
+    "CreateTime": "2003-08-15T14:25:56Z",
+    "RecordId": "urn:nasa:arc:usage:82125.lomax.nas.nasa.gov:0",
+    "LocalJobId": "82125.lomax.nas.nasa.gov",
+    "LocalUserId": "foobar",
+    "Status": "0",
+    "Status_description": "pbs exit status",
+    "Memory": "1060991",
+    "Memory_metric": "max",
+    "Memory_storageUnit": "KB",
+    "Memory_type": "virtual",
+    "Processors": "32",
+    "Processors_metric": "total",
+    "EndTime": "2003-06-16T08:24:32Z",
+    "ProjectName": "g13563",
+    "ProjectName_description": "local charge group",
+    "Host": "lomax.nas.nasa.gov",
+    "Host_primary": "true",
+    "Queue": "lomax",
+    "WallDuration": 2748,
+    "CpuDuration": 15,
+    "Resource": {
+        "pbs-jobname": "m0.20a-7.0b0.0v"
+    }
+}
