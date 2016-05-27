@@ -31,11 +31,11 @@ type userIdentity struct {
 type field struct {
 	XMLName     xml.Name
 	Value       string `xml:",chardata"`
-	Description string `xml:"http://www.gridforum.org/2003/ur-wg description,attr,omitempty"`
-	Unit        string `xml:"http://www.gridforum.org/2003/ur-wg unit,attr,omitempty"`
-	PhaseUnit   string `xml:"http://www.gridforum.org/2003/ur-wg phaseUnit,attr,omitempty"`
-	Formula     string `xml:"http://www.gridforum.org/2003/ur-wg formula,attr,omitempty"`
-	Metric      string `xml:"http://www.gridforum.org/2003/ur-wg metric,attr,omitempty"`
+	Description string `xml:"description,attr,omitempty"`
+	Unit        string `xml:"unit,attr,omitempty"`
+	PhaseUnit   string `xml:"phaseUnit,attr,omitempty"`
+	Formula     string `xml:"formula,attr,omitempty"`
+	Metric      string `xml:"metric,attr,omitempty"`
 }
 
 func (f *field) flatten() map[string]interface{} {
@@ -62,21 +62,21 @@ func (f *field) flatten() map[string]interface{} {
 }
 
 type cpuDuration struct {
-	UsageType   string `xml:"http://www.gridforum.org/2003/ur-wg usageType,attr"`
-	Description string `xml:"http://www.gridforum.org/2003/ur-wg description,attr"`
+	UsageType   string `xml:"usageType,attr"`
+	Description string `xml:"description,attr"`
 	Value       string `xml:",chardata"`
 }
 
 type wallDuration struct {
-	Description string `xml:"http://www.gridforum.org/2003/ur-wg description,attr"`
+	Description string `xml:"description,attr"`
 	Value       string `xml:",chardata"`
 }
 
 type timeDuration struct {
 	XMLName     xml.Name
 	Value       string `xml:",chardata"`
-	Description string `xml:"http://www.gridforum.org/2003/ur-wg description,attr"`
-	Type        string `xml:"http://www.gridforum.org/2003/ur-wg description,attr,omitempty"`
+	Description string `xml:"description,attr"`
+	Type        string `xml:"description,attr,omitempty"`
 }
 
 func (t *timeDuration) flatten() map[string]interface{} {
@@ -95,8 +95,8 @@ func (t *timeDuration) flatten() map[string]interface{} {
 type timeInstant struct {
 	XMLName     xml.Name
 	Value       time.Time `xml:",chardata"`
-	Description string    `xml:"http://www.gridforum.org/2003/ur-wg description,attr"`
-	Type        string    `xml:"http://www.gridforum.org/2003/ur-wg description,attr,omitempty"`
+	Description string    `xml:"description,attr"`
+	Type        string    `xml:"description,attr,omitempty"`
 }
 
 func (t *timeInstant) flatten() map[string]interface{} {
@@ -116,10 +116,10 @@ func (t *timeInstant) flatten() map[string]interface{} {
 type resource struct {
 	XMLName     xml.Name
 	Value       string `xml:",chardata"`
-	Description string `xml:"http://www.gridforum.org/2003/ur-wg description,attr"`
-	Unit        string `xml:"http://www.gridforum.org/2003/ur-wg unit,attr,omitempty"`
-	PhaseUnit   string `xml:"http://www.gridforum.org/2003/ur-wg phaseUnit,attr,omitempty"`
-	StorageUnit string `xml:"http://www.gridforum.org/2003/ur-wg storageUnit,attr,omitempty"`
+	Description string `xml:"description,attr"`
+	Unit        string `xml:"unit,attr,omitempty"`
+	PhaseUnit   string `xml:"phaseUnit,attr,omitempty"`
+	StorageUnit string `xml:"storageUnit,attr,omitempty"`
 }
 
 func (r *resource) flatten() map[string]interface{} {
