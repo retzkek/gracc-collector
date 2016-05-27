@@ -2,6 +2,6 @@ package gracc
 
 type Record interface {
 	Id() string
-	Flatten() map[string]string
+	ToJSON(indent string) ([]byte, error)
 	Raw() []byte
 }

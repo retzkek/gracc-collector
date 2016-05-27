@@ -1,25 +1,19 @@
 package gracc
 
 import (
-	"encoding/json"
-	"encoding/xml"
 	"testing"
 )
 
 func TestJURUnmarshal(t *testing.T) {
 	var v JobUsageRecord
-	if err := xml.Unmarshal([]byte(testRecord), &v); err != nil {
+	if err := v.ParseXML([]byte(testRecord)); err != nil {
 		t.Error(err)
-	}
-	if j, err := json.MarshalIndent(v, "", "    "); err != nil {
-		t.Error(err)
-	} else {
-		t.Logf("%s", j)
 	}
 
+	t.Logf("%s", v.Raw())
 	t.Logf("\n---\n")
 
-	if j, err := json.MarshalIndent(v.Flatten(), "", "    "); err != nil {
+	if j, err := v.ToJSON("    "); err != nil {
 		t.Error(err)
 	} else {
 		t.Logf("%s", j)
