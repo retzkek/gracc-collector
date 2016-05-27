@@ -226,7 +226,7 @@ func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 	r["CpuDuration"] = totalCpu
 	r["WallDuration"] = convertDurationToSeconds(jur.WallDuration.Value)
 	if jur.WallDuration.Description != "" {
-		r["WpuDuration_description"] = jur.WallDuration.Description
+		r["WallDuration_description"] = jur.WallDuration.Description
 	}
 
 	// flatten resources
