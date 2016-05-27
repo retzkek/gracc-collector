@@ -76,7 +76,7 @@ type timeDuration struct {
 	XMLName     xml.Name
 	Value       string `xml:",chardata"`
 	Description string `xml:"description,attr"`
-	Type        string `xml:"description,attr,omitempty"`
+	Type        string `xml:"type,attr,omitempty"`
 }
 
 func (t *timeDuration) flatten() map[string]interface{} {
