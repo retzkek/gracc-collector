@@ -173,15 +173,7 @@ func (jur *JobUsageRecord) ParseXML(xb []byte) error {
 	if err := xml.Unmarshal(xb, jur); err != nil {
 		return err
 	}
-	jur.raw = xb
-	return nil
-}
-
-func (jur *JobUsageRecord) ParseJSON(xb []byte) error {
-	if err := json.Unmarshal(xb, jur); err != nil {
-		return err
-	}
-	jur.raw = xb
+	jur.raw = append(jur.raw, xb...) // copy contents
 	return nil
 }
 
@@ -212,6 +204,7 @@ func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 		"CommonName":       jur.UserIdentity.CommonName,
 		"StartTime":        jur.StartTime.Format(time.RFC3339),
 		"EndTime":          jur.EndTime.Format(time.RFC3339),
+		"RawXML":           string(jur.Raw()),
 	}
 
 	// convert durations
