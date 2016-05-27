@@ -15,6 +15,9 @@ var JURTests = []JURTest{
 	{"test_data/JobUsageRecord01.xml", "test_data/JobUsageRecord01.json"},
 	{"test_data/JobUsageRecord02.xml", "test_data/JobUsageRecord02.json"},
 	{"test_data/JobUsageRecord03.xml", "test_data/JobUsageRecord03.json"},
+	{"test_data/JobUsageRecord04.xml", "test_data/JobUsageRecord04.json"},
+	{"test_data/JobUsageRecord05.xml", "test_data/JobUsageRecord05.json"},
+	{"test_data/JobUsageRecord06.xml", "test_data/JobUsageRecord06.json"},
 }
 
 func TestJURUnmarshal(t *testing.T) {

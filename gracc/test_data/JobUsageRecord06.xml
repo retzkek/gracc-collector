@@ -1,0 +1,45 @@
+<JobUsageRecord xmlns="http://www.gridforum.org/2003/ur-wg" xmlns:urwg="http://www.gridforum.org/2003/ur-wg" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gridforum.org/2003/ur-wg file:///u:/OSG/urwg-schema.11.xsd">
+<RecordIdentity urwg:createTime="2016-05-27T22:46:46Z" urwg:recordId="osg-gw-7.t2.ucsd.edu:35741.2"/>
+<JobIdentity>
+    <GlobalJobId>condor.osg-gw-7.t2.ucsd.edu#185777.0#1464388242</GlobalJobId>
+    <LocalJobId>185777</LocalJobId>
+</JobIdentity>
+<UserIdentity>
+    <LocalUserId>cmsuser</LocalUserId>
+    <GlobalUsername>cmsuser@t2.ucsd.edu</GlobalUsername>
+    <DN>/DC=ch/DC=cern/OU=Organic Units/OU=Users/CN=sciaba/CN=430796/CN=Andrea Sciaba</DN>
+    <VOName>/cms/Role=production/Capability=NULL</VOName>
+    <ReportableVOName>cms</ReportableVOName>
+</UserIdentity>
+    <JobName>osg-gw-7.t2.ucsd.edu#185777.0#1464388242</JobName>
+    <MachineName>osg-gw-7.t2.ucsd.edu</MachineName>
+    <SubmitHost>osg-gw-7.t2.ucsd.edu</SubmitHost>
+    <Status urwg:description="Condor Exit Status">0</Status>
+    <WallDuration urwg:description="Was entered in seconds">PT10M17.0S</WallDuration>
+    <TimeDuration urwg:type="RemoteUserCpu">PT0S</TimeDuration>
+    <TimeDuration urwg:type="LocalUserCpu">PT0S</TimeDuration>
+    <TimeDuration urwg:type="RemoteSysCpu">PT18.0S</TimeDuration>
+    <TimeDuration urwg:type="LocalSysCpu">PT0S</TimeDuration>
+    <TimeDuration urwg:type="CumulativeSuspensionTime">PT0S</TimeDuration>
+    <TimeDuration urwg:type="CommittedSuspensionTime">PT0S</TimeDuration>
+    <TimeDuration urwg:type="CommittedTime">PT10M17.0S</TimeDuration>
+    <CpuDuration urwg:description="Was entered in seconds" urwg:usageType="system">PT18.0S</CpuDuration>
+    <CpuDuration urwg:description="Was entered in seconds" urwg:usageType="user">PT0S</CpuDuration>
+    <EndTime urwg:description="Was entered in seconds">2016-05-27T22:44:08Z</EndTime>
+    <StartTime urwg:description="Was entered in seconds">2016-05-27T22:33:51Z</StartTime>
+    <Host primary="true">cabinet-1-1-1.t2.ucsd.edu</Host>
+    <Queue urwg:description="Condor's JobUniverse field">5</Queue>
+    <NodeCount urwg:metric="max">1</NodeCount>
+    <Processors urwg:metric="max">1</Processors>
+    <Resource urwg:description="CondorMyType">Job</Resource>
+    <Resource urwg:description="AccountingGroup">group_cmsprod.cmsuser</Resource>
+    <Resource urwg:description="ExitBySignal">false</Resource>
+    <Resource urwg:description="ExitCode">0</Resource>
+    <Resource urwg:description="condor.JobStatus">4</Resource>
+    <Network urwg:metric="total" urwg:phaseUnit="PT10M17.0S" urwg:storageUnit="b">0</Network>
+    <ProbeName>condor:osg-gw-7.t2.ucsd.edu</ProbeName>
+    <SiteName>UCSDT2-D</SiteName>
+    <Grid>OSG</Grid>
+    <Njobs>1</Njobs>
+    <Resource urwg:description="ResourceType">Batch</Resource>
+</JobUsageRecord>

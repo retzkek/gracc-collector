@@ -1,0 +1,28 @@
+<JobUsageRecord xmlns="http://www.gridforum.org/2003/ur-wg" xmlns:urwg="http://www.gridforum.org/2003/ur-wg" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gridforum.org/2003/ur-wg file:///u:/OSG/urwg-schema.11.xsd">
+<RecordIdentity urwg:createTime="2016-05-02T16:36:19Z" urwg:recordId="ce01.brazos.tamu.edu:3976909.14"/>
+<JobIdentity>
+    <GlobalJobId>slurm:SLURM/brazos/brazos.13634504_4</GlobalJobId>
+    <LocalJobId>13634504_4</LocalJobId>
+</JobIdentity>
+<UserIdentity>
+    <LocalUserId>georgemm01</LocalUserId>
+    <VOName>cms</VOName>
+    <ReportableVOName>CMS</ReportableVOName>
+</UserIdentity>
+    <JobName>CDMSBulldozer</JobName>
+    <Status>0</Status>
+    <Processors urwg:metric="total">1</Processors>
+    <WallDuration>PT21.0S</WallDuration>
+    <CpuDuration urwg:description="Was entered in seconds" urwg:usageType="user">PT0.55S</CpuDuration>
+    <CpuDuration urwg:description="Was entered in seconds" urwg:usageType="system">PT0.26S</CpuDuration>
+    <EndTime urwg:description="Was entered in seconds">2016-05-02T16:00:46Z</EndTime>
+    <StartTime urwg:description="Was entered in seconds">2016-05-02T16:00:25Z</StartTime>
+    <Queue>stakeholder</Queue>
+    <ProjectName>hepx</ProjectName>
+    <Processors urwg:metric="total">1</Processors>
+    <ProbeName>slurm:ce01.brazos.tamu.edu</ProbeName>
+    <SiteName>TAMU_BRAZOS_CE</SiteName>
+    <Grid>Local</Grid>
+    <Njobs>1</Njobs>
+    <Resource urwg:description="ResourceType">Batch</Resource>
+</JobUsageRecord>

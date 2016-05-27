@@ -1,0 +1,41 @@
+<JobUsageRecord xmlns="http://www.gridforum.org/2003/ur-wg" xmlns:urwg="http://www.gridforum.org/2003/ur-wg" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.gridforum.org/2003/ur-wg file:///u:/OSG/urwg-schema.11.xsd">
+<RecordIdentity urwg:createTime="2016-05-27T22:46:49Z" urwg:recordId="submit-3.chtc.wisc.edu:1140965.8929"/>
+<JobIdentity>
+    <GlobalJobId>condor.submit-3.chtc.wisc.edu#60242911.0#1464388571</GlobalJobId>
+    <LocalJobId>60242911</LocalJobId>
+</JobIdentity>
+<UserIdentity>
+    <LocalUserId>kavandermeul</LocalUserId>
+    <GlobalUsername>kavandermeul@chtc.wisc.edu</GlobalUsername>
+<VOName>GLOW</VOName><ReportableVOName>GLOW</ReportableVOName></UserIdentity>
+    <JobName>submit-3.chtc.wisc.edu#60242911.0#1464388571</JobName>
+    <MachineName>submit-3.chtc.wisc.edu</MachineName>
+    <SubmitHost>submit-3.chtc.wisc.edu</SubmitHost>
+    <Status urwg:description="Condor Exit Status">0</Status>
+    <WallDuration urwg:description="Was entered in seconds">PT5.0S</WallDuration>
+    <TimeDuration urwg:type="RemoteUserCpu">PT0S</TimeDuration>
+    <TimeDuration urwg:type="LocalUserCpu">PT0S</TimeDuration>
+    <TimeDuration urwg:type="RemoteSysCpu">PT0S</TimeDuration>
+    <TimeDuration urwg:type="LocalSysCpu">PT0S</TimeDuration>
+    <TimeDuration urwg:type="CumulativeSuspensionTime">PT0S</TimeDuration>
+    <TimeDuration urwg:type="CommittedSuspensionTime">PT0S</TimeDuration>
+    <TimeDuration urwg:type="CommittedTime">PT5.0S</TimeDuration>
+    <CpuDuration urwg:description="Was entered in seconds" urwg:usageType="system">PT0S</CpuDuration>
+    <CpuDuration urwg:description="Was entered in seconds" urwg:usageType="user">PT0S</CpuDuration>
+    <EndTime urwg:description="Was entered in seconds">2016-05-27T22:36:42Z</EndTime>
+    <StartTime urwg:description="Was entered in seconds">2016-05-27T22:36:37Z</StartTime>
+    <Host primary="true" urwg:description="wisc.edu">c220g2-030631.wisc.cloudlab.us</Host>
+    <Queue urwg:description="Condor's JobUniverse field">5</Queue>
+    <NodeCount urwg:metric="max">1</NodeCount>
+    <Processors urwg:metric="max">1</Processors>
+    <Resource urwg:description="CondorMyType">Job</Resource>
+    <Resource urwg:description="ExitBySignal">false</Resource>
+    <Resource urwg:description="ExitCode">1</Resource>
+    <Resource urwg:description="condor.JobStatus">4</Resource>
+    <Network urwg:metric="total" urwg:phaseUnit="PT5.0S" urwg:storageUnit="b">0</Network>
+    <ProbeName>condor:submit-3.chtc.wisc.edu</ProbeName>
+    <SiteName>CHTC</SiteName>
+    <Grid>OSG</Grid>
+    <Njobs>1</Njobs>
+    <Resource urwg:description="ResourceType">BatchPilot</Resource>
+</JobUsageRecord>
