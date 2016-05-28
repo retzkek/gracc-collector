@@ -35,6 +35,7 @@ type field struct {
 	Description string `xml:"description,attr,omitempty"`
 	Unit        string `xml:"unit,attr,omitempty"`
 	PhaseUnit   string `xml:"phaseUnit,attr,omitempty"`
+	StorageUnit string `xml:"storageUnit,attr,omitempty"`
 	Formula     string `xml:"formula,attr,omitempty"`
 	Metric      string `xml:"metric,attr,omitempty"`
 }
@@ -52,6 +53,9 @@ func (f *field) flatten() map[string]interface{} {
 	}
 	if f.PhaseUnit != "" {
 		r[f.XMLName.Local+"_phaseUnit"] = convertDurationToSeconds(f.PhaseUnit)
+	}
+	if f.StorageUnit != "" {
+		r[f.XMLName.Local+"_storageUnit"] = f.StorageUnit
 	}
 	if f.Formula != "" {
 		r[f.XMLName.Local+"_formula"] = f.Formula
