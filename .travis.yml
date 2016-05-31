@@ -11,3 +11,5 @@ services:
 install: go get -t ./...
 
 script: make servertest
+
+after_script: cat gracc.log
