@@ -101,7 +101,7 @@ type timeInstant struct {
 	XMLName     xml.Name
 	Value       time.Time `xml:",chardata"`
 	Description string    `xml:"description,attr"`
-	Type        string    `xml:"description,attr,omitempty"`
+	Type        string    `xml:"type,attr,omitempty"`
 }
 
 func (t *timeInstant) flatten() map[string]interface{} {
