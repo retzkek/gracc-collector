@@ -49,6 +49,12 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 # Release Notes
 
+### v0.03.00
+
+Revised JSON output structure based on OGF UsageRecord and switch default output to JSON.
+
+[Mapping documentation](https://opensciencegrid.github.io/gracc/dev-docs/raw-records/)
+
 ### v0.02.00
 
 Significant rewrite to simplify while maintaining robust error handling.

@@ -25,7 +25,7 @@ func ReadConfig(file string) (*CollectorConfig, error) {
 		AMQP: AMQPConfig{
 			Host:         "localhost",
 			Port:         "5672",
-			Format:       "raw",
+			Format:       "json",
 			Exchange:     "",
 			ExchangeType: "fanout",
 			Durable:      false,
