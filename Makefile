@@ -12,9 +12,6 @@ test:
 	go test -v -race
 
 servertest: gracc-collector
-	# setup
-	rabbitmqadmin declare queue name=gracc.test
-	rabbitmqadmin declare binding source=gracc destination=gracc.test
 	# run
 	./gracc-collector -c gracc.cfg -l gracc.log &
 	sleep 1
