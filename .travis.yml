@@ -1,0 +1,12 @@
+language: go
+
+go:
+  - 1.6
+  - tip
+
+services:
+  - rabbitmq
+
+install: go get -t ./...
+
+script: make servertest
