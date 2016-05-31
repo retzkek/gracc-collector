@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"sync"
@@ -289,7 +288,7 @@ func (w *AMQPWorker) makePublishing(jur gracc.Record) *amqp.Publishing {
 			pub.Body = j
 		}
 	case "json":
-		if j, err := json.MarshalIndent(jur.Flatten(), "", "    "); err != nil {
+		if j, err := jur.ToJSON("    "); err != nil {
 			ll.Error("error converting JobUsageRecord to json")
 			ll.Debugf("%v", jur)
 			return nil
