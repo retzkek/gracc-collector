@@ -11,7 +11,7 @@ test:
 	# test gracc library
 	cd gracc; go test
 	# test main
-	go test -v
+	go test
 
 clean:
 	rm -f gracc-collector
