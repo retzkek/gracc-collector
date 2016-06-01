@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - tip
+  - 1.6.2
 
 sudo: required
 
@@ -12,5 +12,3 @@ install: go get -t ./...
 
 script: 
   - make test
-
-after_script: gracc.log
