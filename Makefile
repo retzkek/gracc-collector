@@ -8,20 +8,10 @@ run:
 	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S`" -o gracc.run -race && ./gracc.run; rm -f gracc.run
 
 test:
+	# test gracc library
 	cd gracc; go test
-
-servertest: gracc-collector
-	# run
-	./gracc-collector -c gracc.cfg -l gracc.log &
-	sleep 1
-	# send ping
-	curl -f http://localhost:8080/gratia-servlets/rmi\?command\=update\&arg1\=xxx\&from\=localhost\&bundlesize\=1
-	@echo
-	# send test bundle
-	curl -f http://localhost:8080/gratia-servlets/rmi\?command\=update\&from\=localhost\&bundlesize\=10 --data-urlencode arg1@test.bundle
-	@echo
-	# cleanup
-	killall  gracc-collector
+	# test main
+	go test -v
 
 clean:
 	rm -f gracc-collector

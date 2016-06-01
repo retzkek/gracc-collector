@@ -12,6 +12,5 @@ install: go get -t ./...
 
 script: 
   - make test
-  - make servertest
 
 after_script: gracc.log
