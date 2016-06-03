@@ -1,0 +1,11 @@
+/var/log/gracc/gracc-collector*.log {
+    create 0644 gracc gracc
+    daily
+    rotate 10
+    missingok
+    notifempty
+    compress
+    postrotate
+        systemctl kill --signal=USR1  gracc-collector.service
+    endscript
+}

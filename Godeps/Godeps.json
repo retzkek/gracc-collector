@@ -1,0 +1,29 @@
+{
+	"ImportPath": "github.com/opensciencegrid/gracc-collector",
+	"GoVersion": "go1.6",
+	"GodepVersion": "v73",
+	"Deps": [
+		{
+			"ImportPath": "github.com/BurntSushi/toml",
+			"Comment": "v0.2.0",
+			"Rev": "bbd5bb678321a0d6e58f1099321dfa73391c1b6f"
+		},
+		{
+			"ImportPath": "github.com/Sirupsen/logrus",
+			"Comment": "v0.9.0-15-g219c8cb",
+			"Rev": "219c8cb75c258c552e999735be6df753ffc7afdc"
+		},
+		{
+			"ImportPath": "github.com/retzkek/iso8601duration",
+			"Rev": "d27cc0ce07ec9e6fe06e553771cc2d0df8e51b9a"
+		},
+		{
+			"ImportPath": "github.com/streadway/amqp",
+			"Rev": "b4f3ceab0337f013208d31348b578d83c0064744"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "076b546753157f758b316e59bcb51e6807c04057"
+		}
+	]
+}

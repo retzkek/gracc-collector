@@ -1,0 +1,16 @@
+[Unit]
+Description=GRÅCC Collector for %I
+Documentation=https://github.com/opensciencegrid/gracc-collector
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=gracc
+Group=gracc
+Type=simple
+Restart=on-failure
+ExecStart=/usr/bin/gracc-collector -c /etc/gracc/gracc-collector.%i.cfg -l /var/log/gracc/gracc-collector.%i.log
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=GRÅCC Gratia-Compatible Collector
+Documentation=https://github.com/opensciencegrid/gracc-collector
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+User=gracc
+Group=gracc
+Type=simple
+Restart=on-failure
+ExecStart=/usr/bin/gracc-collector -c /etc/gracc/gracc-collector.cfg -l /var/log/gracc/gracc-collector.log
+TimeoutStopSec=20
+
+[Install]
+WantedBy=multi-user.target
