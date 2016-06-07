@@ -12,14 +12,14 @@
     "Processors": "4",
     "ProjectName": "mscfops",
     "MachineName": "Colony",
+    "CpuDuration": 0,
     "WallDuration": 1,
     "StartTime": "2003-08-13T17:34:50Z",
     "EndTime": "2003-08-13T18:37:38Z",
     "NodeCount": "2",
     "Queue": "batch",
-    "Resource": {
-        "quoteId": "1435",
-        "application": "NWChem",
-        "executable": "nwchem_linux"
-    }
+    "ResourceType": "Batch",
+    "Resource_quoteId": "1435",
+    "Resource_application": "NWChem",
+    "Resource_executable": "nwchem_linux"
 }

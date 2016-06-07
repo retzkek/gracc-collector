@@ -19,7 +19,6 @@
     "Queue": "lomax",
     "WallDuration": 2748,
     "CpuDuration": 15,
-    "Resource": {
-        "pbs-jobname": "m0.20a-7.0b0.0v"
-    }
+    "Resource_pbs-jobname": "m0.20a-7.0b0.0v",
+    "ResourceType": "Batch"
 }

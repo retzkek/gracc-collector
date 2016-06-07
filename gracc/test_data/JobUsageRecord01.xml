@@ -17,7 +17,7 @@
 <Charge urwg:description="The spot price charged in last hour corresponding to launch time" urwg:unit="$" urwg:formula="$/instance hr" >0.0</Charge>
 <Status >1</Status>
 <WallDuration >PT1H</WallDuration>
-<CpuDuration urwg:usageType="user" >PT1M5.31S</CpuDuration>
+<CpuDuration urwg:usageType="user" >PT1M5.32S</CpuDuration>
 <CpuDuration urwg:usageType="system" >PT0S</CpuDuration>
 <NodeCount urwg:metric="total" >1</NodeCount>
 <Processors urwg:description="m3.medium" urwg:metric="total" >1</Processors>

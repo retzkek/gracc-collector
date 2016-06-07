@@ -51,6 +51,10 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 # Release Notes
 
+### v0.03.01
+
+Fully flatten JobUsageRecord into simple key:value hash map.
+
 ### v0.03.00
 
 Revised JSON output structure based on OGF UsageRecord and switch default output to JSON.

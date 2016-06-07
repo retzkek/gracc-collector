@@ -2,6 +2,7 @@ package gracc
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"testing"
 )
@@ -47,20 +48,27 @@ func TestJURUnmarshal(t *testing.T) {
 		if _, err := buf.ReadFrom(g); err != nil {
 			t.Error(err)
 		}
+		var rref map[string]interface{}
+		if err := json.Unmarshal(buf.Bytes(), &rref); err != nil {
+			t.Error(err)
+		}
 
-		// Output for comparison (TODO: compare!)
-		t.Logf("=== %s ===", jt.SourceXMLFile)
-		t.Logf("%s", v.Raw())
-		t.Logf("\n---\n")
-		t.Logf("%s", buf.Bytes())
-		t.Logf("\n---\n")
-
+		t.Logf("=== %s ===\n", jt.SourceXMLFile)
 		if j, err := v.ToJSON("    "); err != nil {
 			t.Error(err)
 		} else {
-			t.Logf("%s", j)
+			// Compare
+			var r map[string]interface{}
+			if err := json.Unmarshal(j, &r); err != nil {
+				t.Error(err)
+			}
+			delete(r, "RawXML")
+			for k, v := range r {
+				if v != rref[k] {
+					t.Logf("'%s' Expected: '%v' Got '%v'", k, rref[k], v)
+					t.Fail()
+				}
+			}
 		}
-
-		t.Logf("\n\n")
 	}
 }

@@ -11,6 +11,7 @@ the schema requirements are kept to a minimum. Some fields are expected by
 GRACC compenents so leaving them out will result in the records not being
 properly accounted:
 
+* ResourceType
 * CommonName
 * VOName
 * ReportableVOName
@@ -66,13 +67,16 @@ the top level:
 
 ### Resource
 
-Resources are transformed into a `<description>:<value>` map in the Resource
-field. The description is transformed to make it a valid field name 
-(spaces and dots are converted to dashes). Other properties are flattened 
-into the Resource map as `<description>_<property_name>:<property_value>`.
+Resources are transformed into a `<description>:<value>` map.
+The description is transformed to make it a valid field name 
+(spaces and dots are converted to dashes) prefixed with `Resource_`. 
+Other properties are flattened as `Resource_<description>_<property_name>:<property_value>`.
+
+The special Resource `ResourceType` is moved directly to the top level. ResourceType 
+`BatchPilot` is renamed `Payload` due to the former being misleading.
 
 TimeDuration and TimeInstant elements are likewise put in `<type>:<value>` maps 
-in their respective fields. Durations are converted to seconds, discrete times 
+with their respective prefixes. Durations are converted to seconds, discrete times 
 are ISO8601 strings.
 
 ### Other
@@ -146,15 +150,13 @@ Any other elements are directly included in the top level. Properties of those e
         "Status_description": "Condor Exit Status",
         "WallDuration": 617,
         "WallDuration_description": "Was entered in seconds"
-        "TimeDuration": {
-            "CommittedSuspensionTime": 0,
-            "CommittedTime": 617,
-            "CumulativeSuspensionTime": 0,
-            "LocalSysCpu": 0,
-            "LocalUserCpu": 0,
-            "RemoteSysCpu": 18,
-            "RemoteUserCpu": 0
-        },
+        "TimeDuration_CommittedSuspensionTime": 0,
+        "TimeDuration_CommittedTime": 617,
+        "TimeDuration_CumulativeSuspensionTime": 0,
+        "TimeDuration_LocalSysCpu": 0,
+        "TimeDuration_LocalUserCpu": 0,
+        "TimeDuration_RemoteSysCpu": 18,
+        "TimeDuration_RemoteUserCpu": 0,
         "CpuDuration": 18,
         "CpuDuration_system": 18,
         "CpuDuration_system_description": "Was entered in seconds",
@@ -169,14 +171,12 @@ Any other elements are directly included in the top level. Properties of those e
         "NodeCount_metric": "max",
         "Processors": "1",
         "Processors_metric": "max",
-        "Resource": {
-            "AccountingGroup": "group_cmsprod.cmsuser",
-            "CondorMyType": "Job",
-            "ExitBySignal": "false",
-            "ExitCode": "0",
-            "ResourceType": "Batch",
-            "condor-JobStatus": "4"
-        },
+        "Resource_AccountingGroup": "group_cmsprod.cmsuser",
+        "Resource_CondorMyType": "Job",
+        "Resource_ExitBySignal": "false",
+        "Resource_ExitCode": "0",
+        "Resource_condor-JobStatus": "4",
+        "ResourceType": "Batch",
         "Network": "0",
         "Network_metric": "total",
         "Network_phaseUnit": 617,

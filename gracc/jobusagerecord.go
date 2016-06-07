@@ -3,6 +3,7 @@ package gracc
 import (
 	"encoding/json"
 	"encoding/xml"
+	"fmt"
 	"strings"
 	"time"
 
@@ -14,10 +15,40 @@ type recordIdentity struct {
 	CreateTime time.Time `xml:"createTime,attr"`
 }
 
+func (i *recordIdentity) flatten() map[string]interface{} {
+	var r = make(map[string]interface{})
+	if i.RecordId != "" {
+		r["RecordId"] = i.RecordId
+	}
+	if !i.CreateTime.IsZero() {
+		r["CreateTime"] = i.CreateTime.Format(time.RFC3339)
+	}
+	return r
+}
+
 type jobIdentity struct {
 	GlobalJobId string
 	LocalJobId  string
 	ProcessId   []string
+}
+
+func (i *jobIdentity) flatten() map[string]interface{} {
+	var r = make(map[string]interface{})
+	if i.GlobalJobId != "" {
+		r["GlobalJobId"] = i.GlobalJobId
+	}
+	if i.LocalJobId != "" {
+		r["LocalJobId"] = i.LocalJobId
+	}
+	if len(i.ProcessId) == 1 {
+		r["ProcessId"] = i.ProcessId[0]
+	} else if len(i.ProcessId) > 1 {
+		for n, v := range i.ProcessId {
+			k := fmt.Sprintf("ProcessId%d", n)
+			r[k] = v
+		}
+	}
+	return r
 }
 
 type userIdentity struct {
@@ -27,6 +58,29 @@ type userIdentity struct {
 	ReportableVOName string
 	CommonName       string
 	DN               string
+}
+
+func (i *userIdentity) flatten() map[string]interface{} {
+	var r = make(map[string]interface{})
+	if i.GlobalUsername != "" {
+		r["GlobalUsername"] = i.GlobalUsername
+	}
+	if i.LocalUserId != "" {
+		r["LocalUserId"] = i.LocalUserId
+	}
+	if i.VOName != "" {
+		r["VOName"] = i.VOName
+	}
+	if i.ReportableVOName != "" {
+		r["ReportableVOName"] = i.ReportableVOName
+	}
+	if i.CommonName != "" {
+		r["CommonName"] = i.CommonName
+	}
+	if i.DN != "" {
+		r["DN"] = i.DN
+	}
+	return r
 }
 
 type field struct {
@@ -197,23 +251,28 @@ func (jur *JobUsageRecord) Raw() []byte {
 // Indent specifies the string to use for each indentation level,
 // if empty no indentation or pretty-printing is performed.
 func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
-	var r = map[string]interface{}{
-		"RecordId":         jur.RecordIdentity.RecordId,
-		"CreateTime":       jur.RecordIdentity.CreateTime.Format(time.RFC3339),
-		"GlobalJobId":      jur.JobIdentity.GlobalJobId,
-		"LocalJobId":       jur.JobIdentity.LocalJobId,
-		"GlobalUsername":   jur.UserIdentity.GlobalUsername,
-		"LocalUserId":      jur.UserIdentity.LocalUserId,
-		"VOName":           jur.UserIdentity.VOName,
-		"ReportableVOName": jur.UserIdentity.ReportableVOName,
-		"CommonName":       jur.UserIdentity.CommonName,
-		"DN":               jur.UserIdentity.DN,
-		"StartTime":        jur.StartTime.Format(time.RFC3339),
-		"EndTime":          jur.EndTime.Format(time.RFC3339),
-		"RawXML":           string(jur.Raw()),
+	var r = make(map[string]interface{})
+
+	// Flatten identity blocks
+	for k, v := range jur.RecordIdentity.flatten() {
+		r[k] = v
+	}
+	for k, v := range jur.JobIdentity.flatten() {
+		r[k] = v
+	}
+	for k, v := range jur.UserIdentity.flatten() {
+		r[k] = v
 	}
 
-	// convert durations
+	// Standard time instants
+	if !jur.StartTime.IsZero() {
+		r["StartTime"] = jur.StartTime.Format(time.RFC3339)
+	}
+	if !jur.EndTime.IsZero() {
+		r["EndTime"] = jur.EndTime.Format(time.RFC3339)
+	}
+
+	// Standard durations
 	var totalCpu float64
 	for _, c := range jur.CpuDuration {
 		secs := convertDurationToSeconds(c.Value)
@@ -234,42 +293,40 @@ func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 	}
 
 	// flatten resources
-	var res = make(map[string]interface{})
 	if len(jur.Resource) > 0 {
 		for _, resa := range [][]resource{jur.Resource,
 			jur.ConsumableResource,
 			jur.PhaseResource,
 			jur.VolumeResource,
 		} {
-			for _, r := range resa {
-				for k, v := range r.flatten() {
-					res[k] = v
+			for _, res := range resa {
+				for k, v := range res.flatten() {
+					r["Resource_"+k] = v
 				}
 			}
 		}
 	}
-	if len(res) > 0 {
-		r["Resource"] = res
+	// Rename/Add ResourceType
+	switch r["Resource_ResourceType"] {
+	case nil, "", "Batch":
+		r["ResourceType"] = "Batch"
+	case "BatchPilot":
+		r["ResourceType"] = "Payload"
+	default:
+		r["ResourceType"] = r["Resource_ResourceType"]
 	}
+	delete(r, "Resource_ResourceType")
 
 	// time durations and instants
-	var timedur = make(map[string]interface{})
 	for _, td := range jur.TimeDuration {
 		for k, v := range td.flatten() {
-			timedur[k] = v
+			r["TimeDuration_"+k] = v
 		}
 	}
-	if len(timedur) > 0 {
-		r["TimeDuration"] = timedur
-	}
-	var timeinst = make(map[string]interface{})
 	for _, td := range jur.TimeInstant {
 		for k, v := range td.flatten() {
-			timeinst[k] = v
+			r["TimeInstant_"+k] = v
 		}
-	}
-	if len(timeinst) > 0 {
-		r["TimeInstant"] = timeinst
 	}
 
 	// flatten other fields
@@ -278,6 +335,9 @@ func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 			r[k] = v
 		}
 	}
+
+	// add XML
+	r["RawXML"] = string(jur.Raw())
 
 	if indent != "" {
 		return json.MarshalIndent(r, "", indent)
