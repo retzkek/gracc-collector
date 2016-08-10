@@ -37,7 +37,7 @@ Vagrant.configure("2") do |config|
   # the path on the host to the actual folder. The second argument is
   # the path on the guest to mount the folder. And the optional third
   # argument is a set of non-required options.
-  # config.vm.synced_folder "../data", "/vagrant_data"
+  config.vm.synced_folder "../../../../src", "/home/vagrant/src"
 
   # Provider-specific configuration so you can fine-tune various
   # backing providers for Vagrant. These expose provider-specific options.
@@ -69,8 +69,7 @@ Vagrant.configure("2") do |config|
     sudo yum install -y rabbitmq-server golang
     sudo systemctl start rabbitmq-server
 
-    export GOPATH=$HOME
-    mkdir -p src/github.com/opensciencegrid
-    ln -s /vagrant src/github.com/opensciencegrid/gracc-collector
+    echo 'setting up user environment'
+    echo 'echo "export GOPATH=$HOME" >> $HOME/.bashrc' | sudo -iu vagrant
   SHELL
 end
