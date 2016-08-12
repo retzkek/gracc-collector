@@ -285,7 +285,7 @@ ScannerLoop:
 		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", received, bundlesize)
 	}
 	// wait for confirms that all records were received and routed
-	if err := w.Wait(g.Config.Timeout); err != nil {
+	if err := w.Wait(g.Config.TimeoutDuration); err != nil {
 		return err
 	}
 	return nil

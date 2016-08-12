@@ -14,7 +14,8 @@ import (
 type CollectorConfig struct {
 	Address         string        `env:"GRACC_ADDRESS"`
 	Port            string        `env:"GRACC_PORT"`
-	Timeout         time.Duration `env:"GRACC_TIMEOUT"`
+	Timeout         string        `env:"GRACC_TIMEOUT"`
+	TimeoutDuration time.Duration `env:"-"`
 	LogLevel        string        `env:"GRACC_LOGLEVEL"`
 	AMQP            AMQPConfig    `env:"GRACC_AMQP_"`
 	StartBufferSize int           `env:"GRACC_STARTBUFFERSIZE"`
@@ -25,7 +26,7 @@ func DefaultConfig() *CollectorConfig {
 	var conf = CollectorConfig{
 		Address:  "",
 		Port:     "8080",
-		Timeout:  60 * time.Second,
+		Timeout:  "60s",
 		LogLevel: "info",
 		AMQP: AMQPConfig{
 			Host:         "localhost",
@@ -39,12 +40,23 @@ func DefaultConfig() *CollectorConfig {
 			AutoDelete:   true,
 			Internal:     false,
 			RoutingKey:   "",
-			Retry:        10 * time.Second,
+			Retry:        "10s",
 		},
 		StartBufferSize: 4096,
 		MaxBufferSize:   512 * 1024,
 	}
 	return &conf
+}
+
+// Validate checks that the config is valid, and performs
+// any necessary conversions (e.g. time durations).
+func (c *CollectorConfig) Validate() error {
+	var err error
+	c.TimeoutDuration, err = time.ParseDuration(c.Timeout)
+	if err != nil {
+		return err
+	}
+	return c.AMQP.Validate()
 }
 
 // ReadConfig reads the configuration from a TOML file.
@@ -54,31 +66,25 @@ func (c *CollectorConfig) ReadConfig(file string) error {
 		return err
 
 	}
-	// TODO: change Timeout and Retry to duration string to avoid ambiguation
-	c.Timeout = c.Timeout * time.Second
-	c.AMQP.Retry = c.AMQP.Retry * time.Second
-	return nil
+	return c.Validate()
 }
 
 // GetEnv will check the environment for config values, and
 // set them if defined.
-func (c *CollectorConfig) GetEnv() {
+func (c *CollectorConfig) GetEnv() error {
 	setEnvByTag(c, "")
+	return c.Validate()
 }
 
 func setEnvByTag(d interface{}, prefix string) {
 	t := reflect.ValueOf(d).Elem().Type()
 	for i := 0; i < t.NumField(); i++ {
 		tfield := t.Field(i)
-		field := reflect.ValueOf(d).Elem().Field(i)
-		/*if !field.CanSet() {
-			log.WithFields(log.Fields{
-				"field": tfield.Name,
-				"type":  tfield.Type.String(),
-			}).Fatal("cannot set config field from env: field is not settable")
+		if tfield.Tag.Get("env") == "-" {
 			continue
-		}*/
+		}
 		envVar := prefix + tfield.Tag.Get("env")
+		field := reflect.ValueOf(d).Elem().Field(i)
 		if tfield.Type.Kind() == reflect.Struct {
 			setEnvByTag(field.Addr().Interface(), tfield.Tag.Get("env"))
 		} else if val := os.Getenv(envVar); val != "" {

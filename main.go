@@ -11,7 +11,7 @@ import (
 
 // build parameters
 var (
-	build_ver  = "0.03.01"
+	build_ver  = "0.4.0"
 	build_date = "???"
 	build_ref  = "scratch"
 )
@@ -63,7 +63,9 @@ func main() {
 			log.Fatal(err)
 		}
 	}
-	config.GetEnv()
+	if err := config.GetEnv(); err != nil {
+		log.Fatal(err)
+	}
 
 	log.WithFields(log.Fields{
 		"level": config.LogLevel,

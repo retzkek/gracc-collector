@@ -7,7 +7,6 @@ import (
 	"net/url"
 	"os"
 	"testing"
-	"time"
 
 	log "github.com/Sirupsen/logrus"
 )
@@ -16,7 +15,7 @@ var (
 	config = &CollectorConfig{
 		Address:  "localhost",
 		Port:     "8787",
-		Timeout:  10 * time.Second,
+		Timeout:  "10s",
 		LogLevel: "DEBUG",
 		AMQP: AMQPConfig{
 			Host:         "localhost",
@@ -30,7 +29,7 @@ var (
 			AutoDelete:   true,
 			Internal:     false,
 			RoutingKey:   "",
-			Retry:        10 * time.Second,
+			Retry:        "10s",
 		},
 		StartBufferSize: 4096,
 		MaxBufferSize:   512 * 1024,
@@ -46,6 +45,9 @@ func TestMain(m *testing.M) {
 	}
 	// initialize collector
 	var err error
+	if err = config.Validate(); err != nil {
+		log.Fatalf("error in collector config: %s", err)
+	}
 	if collector, err = NewCollector(config); err != nil {
 		log.Fatalf("error starting collector: %s", err)
 	}
