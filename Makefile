@@ -17,6 +17,9 @@ rpm:
 	git archive --prefix gracc-collector/ --output $(HOME)/rpmbuild/SOURCES/gracc-collector.tar.gz HEAD
 	rpmbuild -ba gracc-collector.spec
 
+docker:
+	CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags '-w' .
+	docker build -t opensciencegrid/gracc-collector .
 
 clean:
 	rm -f gracc-collector
