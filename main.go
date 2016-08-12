@@ -23,7 +23,7 @@ var (
 )
 
 func init() {
-	flag.StringVar(&configFile, "c", "gracc.cfg", "config file")
+	flag.StringVar(&configFile, "c", "", "config file")
 	flag.StringVar(&logFile, "l", "stderr", "log file: stdout, stderr, or file name")
 }
 
@@ -55,11 +55,15 @@ func main() {
 		"ref":     build_ref,
 	}).Info("GRÅCC")
 
-	log.WithField("file", configFile).Info("reading config")
-	config, err := ReadConfig(configFile)
-	if err != nil {
-		log.Fatal(err)
+	config := DefaultConfig()
+	if configFile != "" {
+		log.WithField("file", configFile).Info("reading config")
+		err := config.ReadConfig(configFile)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
+	config.GetEnv()
 
 	log.WithFields(log.Fields{
 		"level": config.LogLevel,

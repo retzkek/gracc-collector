@@ -12,19 +12,19 @@ import (
 )
 
 type AMQPConfig struct {
-	Host         string
-	Port         string
-	Vhost        string
-	User         string
-	Password     string
-	Format       string
-	Exchange     string
-	ExchangeType string
-	Durable      bool
-	AutoDelete   bool
-	Internal     bool
-	RoutingKey   string
-	Retry        time.Duration
+	Host         string        `env:"HOST"`
+	Port         string        `env:"PORT"`
+	Vhost        string        `env:"VHOST"`
+	User         string        `env:"USER"`
+	Password     string        `env:"PASSWORD"`
+	Format       string        `env:"FORMAT"`
+	Exchange     string        `env:"EXCHANGE"`
+	ExchangeType string        `env:"EXCHANGETYPE"`
+	Durable      bool          `env:"DURABLE"`
+	AutoDelete   bool          `env:"AUTODELETE"`
+	Internal     bool          `env:"INTERNAL"`
+	RoutingKey   string        `env:"ROUTINGKEY"`
+	Retry        time.Duration `env:"RETRY"`
 }
 
 type AMQPOutput struct {
