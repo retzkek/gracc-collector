@@ -38,20 +38,26 @@ docker:
 	CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S` -X main.build_ref=RELEASE -w" -o gracc-collector
 	docker build -f Dockerfile.deploy -t opensciencegrid/gracc-collector .
 
-with-docker: | docker-setup docker-build docker-clean
+with-docker: | docker-setup docker-build docker-rpmtest docker-clean
 
 docker-setup:
-	docker build -t opensciencegrid/gracc-collector-test .
 	docker network create gracc
+	docker run -d --network gracc --name rabbit rabbitmq
 
 docker-build:
-	docker run -d --network gracc --name rabbit rabbitmq
-	docker run -it --network gracc --name gracc --link rabbit:rabbit -e GRACC_AMQP_HOST=rabbit opensciencegrid/gracc-collector-test
+	docker build -t opensciencegrid/gracc-collector-test .
+	docker run -it --network gracc --name gracc -e GRACC_AMQP_HOST=rabbit opensciencegrid/gracc-collector-test
 	docker cp gracc:/root/rpmbuild/RPMS/ ./target/
 	docker cp gracc:/root/rpmbuild/BUILD/gracc-collector/gracc-collector ./target/
 
+docker-rpmtest:
+	docker build -f Dockerfile.rpmtest -t opensciencegrid/gracc-rpmtest .
+	docker run --privileged -d --network gracc --name gracc-rpm -v /sys/fs/cgroup:/sys/fs/cgroup:ro opensciencegrid/gracc-rpmtest
+	docker exec gracc-rpm '/usr/sbin/systemctl status gracc-collector'
+	docker stop gracc-rpm
+
 docker-clean:
-	docker rm -f rabbit gracc
+	docker rm -f rabbit gracc gracc-rpm
 	docker network rm gracc
 
 clean:
