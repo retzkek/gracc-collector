@@ -57,8 +57,8 @@ docker-rpmtest:
 	docker stop gracc-rpm
 
 docker-clean:
-	docker rm -f rabbit gracc gracc-rpm
-	docker network rm gracc
+	-docker rm -f rabbit gracc gracc-rpm
+	-docker network rm gracc
 
 clean:
 	rm -f gracc-collector gracc-collector.scratch gracc.run
