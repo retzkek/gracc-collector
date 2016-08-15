@@ -45,6 +45,9 @@ func TestMain(m *testing.M) {
 	}
 	// initialize collector
 	var err error
+	if err = config.GetEnv(); err != nil {
+		log.Fatalf("error getting env var: %s", err)
+	}
 	if err = config.Validate(); err != nil {
 		log.Fatalf("error in collector config: %s", err)
 	}

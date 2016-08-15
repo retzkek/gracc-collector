@@ -1,9 +1,11 @@
 language: go
 go:
-- 1.6.2
+- 1.6.3
 sudo: required
 services:
-- rabbitmq
-install: go get -t ./...
+- docker
+before_install:
+- docker pull rabbitmq
+- docker pull centos:7
 script:
-- make test
+- make with-docker

@@ -2,3 +2,4 @@ gracc-collector
 gracc-collector.scratch
 *.log
 .vagrant
+target/*
