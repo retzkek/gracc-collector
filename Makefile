@@ -53,7 +53,8 @@ docker-build:
 docker-rpmtest:
 	docker build -f Dockerfile.rpmtest -t opensciencegrid/gracc-rpmtest .
 	docker run --privileged -d --network gracc --name gracc-rpm -v /sys/fs/cgroup:/sys/fs/cgroup:ro opensciencegrid/gracc-rpmtest
-	docker exec gracc-rpm /usr/bin/systemctl status gracc-collector
+	-docker exec gracc-rpm /usr/bin/systemctl status gracc-collector
+	-docker exec gracc-rpm docker exec gracc-rpm cat /var/log/gracc/gracc-collector.log
 	docker stop gracc-rpm
 
 docker-clean:
