@@ -34,7 +34,7 @@ func DefaultConfig() *CollectorConfig {
 			Format:       "json",
 			User:         "guest",
 			Password:     "guest",
-			Exchange:     "",
+			Exchange:     "gracc",
 			ExchangeType: "fanout",
 			Durable:      false,
 			AutoDelete:   true,
