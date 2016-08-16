@@ -15,5 +15,6 @@ VOLUME [ "/sys/fs/cgroup" ]
 # install gracc
 ADD ./target/RPMS/x86_64/ /rpms
 RUN yum -y install $(ls -r /rpms/gracc-collector-*.el7.centos.x86_64.rpm | head -n 1) && systemctl enable gracc-collector.service
+RUN echo GRACC_AMQP_HOST=rabbit >> /etc/sysconfig/gracc-collector
 
 CMD ["/usr/sbin/init"]
