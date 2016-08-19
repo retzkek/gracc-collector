@@ -9,6 +9,7 @@ User=gracc
 Group=gracc
 Type=simple
 Restart=on-failure
+EnvironmentFile=-/etc/sysconfig/gracc-collector
 ExecStart=/usr/bin/gracc-collector -c /etc/gracc/gracc-collector.cfg -l /var/log/gracc/gracc-collector.log
 TimeoutStopSec=20
 

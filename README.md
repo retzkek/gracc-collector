@@ -3,7 +3,8 @@
 # Overview
 
 The gracc-collector is a "Gratia-Compatible Collector" that acts as a 
-transitional interface between the obsolete [Gratia](https://sourceforge.net/projects/gratia/) accounting collector and probes and the new GRÅCC accounting system.
+transitional interface between the obsolete [Gratia](https://sourceforge.net/projects/gratia/)
+accounting collector and probes and the new GRÅCC accounting system.
 
 It listens for bundles of records (as would be sent via replication from a 
 Gratia collector or from a Gratia probe) on HTTP, processes the bundle into 
@@ -12,23 +13,27 @@ AMQP 0.9.1 broker.
 
 # Configuration
 
-The config file is [TOML](https://github.com/toml-lang/toml) format. 
+The config file is [TOML](https://github.com/toml-lang/toml) format.
+Config options can also be specified by environment variables, shown
+below in parentheses. Environment variables override file settings.
 
-    address = "localhost" # address to listen on
-    port = "8888"         # port to listen on
-    loglevel = "debug"    # log level (debug, info, warn, error, fatal, panic)
+    address = "localhost" # address to listen on (GRACC_ADDRESS)
+    port = "8888"         # port to listen on (GRACC_PORT)
+    timeout = "60s"       # HTTP connection timeout (GRACC_TIMEOUT)
+    loglevel = "debug"    # log level [debug|info|warn|error|fatal|panic] (GRACC_LOGLEVEL)
     
     [AMQP]
-    host = "localhost"    # AMQP broker
-    port = "5672"
-    vhost = ""
-    exchange = ""
-    routingKey = ""
-    durable = true        # keep exchange between server restarts
-    autoDelete = true     # delete exchange when there are no remaining bindings
-    user = "guest"
-    password = "guest"
-    format = "raw"        # format to send record in (raw, xml, json)
+    host = "localhost"    # AMQP broker (GRACC_AMQP_HOST)
+    port = "5672"         # (GRACC_AMQP_PORT)
+    vhost = ""            # (GRACC_AMQP_VHOST)
+    exchange = ""         # (GRACC_AMQP_EXCHANGE)
+    routingKey = ""       # (GRACC_AMQP_ROUTINGKEY)
+    durable = true        # keep exchange between server restarts (GRACC_AMQP_DURABLE)
+    autoDelete = true     # delete exchange when there are no remaining bindings (GRACC_AMQP_AUTODELETE)
+    user = "guest"        # (GRACC_AMQP_USER)
+    password = "guest"    # (GRACC_AMQP_PASSWORD)
+    format = "raw"        # format to send record in [raw|xml|json] (GRACC_AMQP_FORMAT)
+    retry = "10s"         # AMQP connection retry interval (GRACC_AMQP_RETRY)
 
 # Usage
 
@@ -50,6 +55,15 @@ See `sample/gracc.logrotate` for a sample logrotate configuration. Copy the file
 appropriate changes) to `/etc/logrotate.d/gracc`.
 
 # Release Notes
+
+### v0.4.0
+
+* Allow config options to be set by environment variable. 
+  Precedence: env var > config file > default.
+* Change timeout and AMQP.retry config options to duration strings.
+  A duration string is a possibly signed sequence of decimal numbers, each with
+  optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m". 
+  Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h". 
 
 ### v0.03.01
 
