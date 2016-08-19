@@ -212,19 +212,30 @@ func (w *AMQPWorker) PublishRecord(rec gracc.Record) error {
 }
 
 // Wait will wait for confirms for all publishings sent so far.
-// It will also listen for return, and will return an error if
-// a record is returned.
-func (w *AMQPWorker) Wait() error {
+// It will also listen for returns, and will return an error if
+// a record is returned or if timeout elapses (unless timout<=0).
+func (w *AMQPWorker) Wait(timeout time.Duration) error {
 	ll := log.WithFields(log.Fields{
 		"where": "AMQPWorker.Wait",
 	})
 	if w.lastTag < 1 {
 		return fmt.Errorf("no records were sent")
 	}
+	var tc <-chan time.Time
+	if timeout > 0 {
+		tc = time.After(timeout)
+	} else {
+		tc = make(<-chan time.Time)
+	}
 	var returns, nacks int
 WaitLoop:
 	for {
 		select {
+		case <-tc:
+			ll.WithFields(log.Fields{
+				"timeout": timeout.String(),
+			}).Warning("timed out while waiting for confirms")
+			return fmt.Errorf("timed out while waiting for confirms")
 		case c := <-w.closing:
 			ll.WithFields(log.Fields{
 				"code":             c.Code,
