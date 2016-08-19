@@ -59,7 +59,7 @@ docker-rpmtest:
 	docker run --privileged -d --network gracc --name gracc-rpm -v /sys/fs/cgroup:/sys/fs/cgroup:ro -p 8080:8080 opensciencegrid/gracc-rpmtest
 	sleep 5
 	-docker exec gracc-rpm /usr/bin/systemctl status gracc-collector
-	-curl -XPOST -i '172.17.0.1:8080/gratia-servlets/rmi?command=update&from=localhost&bundlesize=10' --data-urlencode arg1@test.bundle
+	-curl -XPOST -i 'localhost:8080/gratia-servlets/rmi?command=update&from=localhost&bundlesize=10' --data-urlencode arg1@test.bundle
 	-docker exec gracc-rpm cat /var/log/gracc/gracc-collector.log
 	docker stop gracc-rpm
 
