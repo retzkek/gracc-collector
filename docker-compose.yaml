@@ -1,0 +1,29 @@
+version: '2'
+services:
+    elasticsearch:
+        image: elasticsearch:2.4
+        ports:
+        - "9200:9200"
+    rabbitmq:
+        image: rabbitmq:management
+        ports:
+        - "15672:15672"
+    gracc-collector:
+        image: opensciencegrid/gracc-collector
+        environment:
+        - GRACC_AMQP_HOST=rabbitmq
+        - GRACC_AMQP_EXCHANGE=gracc.osg.raw
+        ports:
+        - "8080:8080"
+        depends_on:
+        - rabbitmq
+    gracc-stash-raw:
+        image: retzkek/gracc-stash-raw
+        environment:
+        - GRACC_INSTANCE=test
+        - GRACC_STREAM=osg
+        - ELASTICSEARCH_HOST=elasticsearch
+        - AMQP_HOST=rabbitmq
+        depends_on:
+        - gracc-collector
+        - elasticsearch
