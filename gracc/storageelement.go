@@ -10,6 +10,7 @@ type StorageElement struct {
 	XMLName   xml.Name  `xml:"StorageElement"`
 	UniqueID  string    `xml:",omitempty"`
 	Timestamp time.Time `xml:",omitempty"`
+	Origin    origin    `xml:,omitempty"`
 	Fields    []field   `xml:",any"`
 	raw       []byte    `xml:"-"`
 }
@@ -51,6 +52,11 @@ func (se *StorageElement) ToJSON(indent string) ([]byte, error) {
 		for k, v := range f.flatten() {
 			r[k] = v
 		}
+	}
+
+	// origin
+	for k, v := range se.Origin.flatten() {
+		r[k] = v
 	}
 
 	// add XML

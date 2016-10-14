@@ -9,5 +9,10 @@
     "Status": "Production",
     "ProbeName": "hadoop-storage:caffeine.spa.umn.edu",
     "SiteName": "UMN-CMS-SE",
-    "Grid": "OSG"
+    "Grid": "OSG",
+    "Origin_hop": 1,
+    "OriginServerDate": "2012-10-30T00:26:59Z",
+    "OriginSenderHost": "128.101.221.170",
+    "OriginSender": "hadoop-storage:caffeine.spa.umn.edu",
+    "OriginCollector": "collector:gr12x0.fnal.gov/131.225.152.85"
 }
