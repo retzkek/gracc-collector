@@ -1,0 +1,18 @@
+<StorageElementRecord xmlns:urwg="http://www.gridforum.org/2003/ur-wg">
+    <UniqueID >UMN-CMS-SE:SE:UMN-CMS-SE</UniqueID>
+    <MeasurementType >raw</MeasurementType>
+    <StorageType >disk</StorageType>
+    <Timestamp >2012-10-30T00:26:54Z</Timestamp>
+    <TotalSpace >158961960684544</TotalSpace>
+    <UsedSpace >125757757218816</UsedSpace>
+    <FreeSpace >33204203465728</FreeSpace>
+    <FileCountLimit >2147483647</FileCountLimit>
+    <FileCount >37032</FileCount>
+    <ProbeName >hadoop-storage:caffeine.spa.umn.edu</ProbeName>
+    <Origin hop="1" ><ServerDate >2012-10-30T00:26:59Z</ServerDate>
+        <Connection><SenderHost>128.101.221.170</SenderHost>
+            <Sender>hadoop-storage:caffeine.spa.umn.edu</Sender>
+            <Collector>collector:gr12x0.fnal.gov/131.225.152.85</Collector>
+        </Connection>
+    </Origin>
+</StorageElementRecord>

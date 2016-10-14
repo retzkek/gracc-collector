@@ -1,0 +1,23 @@
+<StorageElement xmlns:urwg="http://www.gridforum.org/2003/ur-wg">
+    <UniqueID >UMN-CMS-SE:SE:UMN-CMS-SE</UniqueID>
+    <SE >UMN-CMS-SE</SE>
+    <Name >UMN-CMS-SE</Name>
+    <SpaceType >SE</SpaceType>
+    <Timestamp >2012-10-30T00:26:54Z</Timestamp>
+    <Implementation >Hadoop</Implementation>
+    <Version >Hadoop 0.20.2+737
+        Subversion  -r 98c55c28258aa6f42250569bd7fa431ac657bdbd
+        Compiled by mockbuild on Tue Nov 29 02:52:15 EST 2011
+        From source with checksum 15b415650bf28785987688b54d5e292c
+    </Version>
+    <Status >Production</Status>
+    <ProbeName >hadoop-storage:caffeine.spa.umn.edu</ProbeName>
+    <SiteName >UMN-CMS-SE</SiteName>
+    <Grid >OSG</Grid>
+    <Origin hop="1" ><ServerDate >2012-10-30T00:26:59Z</ServerDate>
+        <Connection><SenderHost>128.101.221.170</SenderHost>
+            <Sender>hadoop-storage:caffeine.spa.umn.edu</Sender>
+            <Collector>collector:gr12x0.fnal.gov/131.225.152.85</Collector>
+        </Connection>
+    </Origin>
+</StorageElement>

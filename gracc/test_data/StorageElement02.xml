@@ -1,0 +1,14 @@
+<StorageElement xmlns:urwg="http://www.gridforum.org/2003/ur-wg">
+    <UniqueID >Generic:SE:Generic</UniqueID>
+    <SE >Generic</SE>
+    <Name >Generic</Name>
+    <SpaceType >SE</SpaceType>
+    <Timestamp >2013-03-25T18:37:59Z</Timestamp>
+    <Implementation >dCache</Implementation>
+    <Version >production-1.9.5-26</Version>
+    <Status >Production</Status>
+    <ProbeName >dCache-storage:dcache-admin.fnal.gov</ProbeName>
+    <SiteName >dcache-admin.fnal.gov</SiteName>
+    <Grid >OSG</Grid>
+</StorageElement>
+

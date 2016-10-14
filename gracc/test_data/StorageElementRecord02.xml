@@ -1,0 +1,10 @@
+<StorageElementRecord xmlns:urwg="http://www.gridforum.org/2003/ur-wg">
+    <UniqueID >Generic:SE:Generic</UniqueID>
+    <MeasurementType >raw</MeasurementType>
+    <StorageType >disk</StorageType>
+    <Timestamp >2013-03-25T18:37:59Z</Timestamp>
+    <TotalSpace >16106127360</TotalSpace>
+    <UsedSpace >103264</UsedSpace>
+    <FreeSpace >16106024096</FreeSpace>
+    <ProbeName >dCache-storage:dcache-admin.fnal.gov</ProbeName>
+</StorageElementRecord>
