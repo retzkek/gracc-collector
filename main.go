@@ -2,11 +2,13 @@ package main
 
 import (
 	"flag"
-	log "github.com/Sirupsen/logrus"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+
+	log "github.com/Sirupsen/logrus"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 // build parameters
@@ -83,12 +85,15 @@ func main() {
 		log.Fatal(err)
 	}
 
+	prometheus.MustRegister(g)
+
 	log.WithFields(log.Fields{
 		"address": config.Address,
 		"port":    config.Port,
 	}).Info("starting HTTP server")
 	http.Handle("/gratia-servlets/rmi", g)
 	http.HandleFunc("/stats", g.ServeStats)
+	http.Handle("/metrics", prometheus.Handler())
 	go http.ListenAndServe(config.Address+":"+config.Port, nil)
 
 	// loop to catch signals

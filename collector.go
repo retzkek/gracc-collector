@@ -13,6 +13,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 	"github.com/opensciencegrid/gracc-collector/gracc"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 type CollectorStats struct {
@@ -38,6 +39,11 @@ type GraccCollector struct {
 	m      sync.Mutex
 
 	Events chan Event
+
+	RecordCountDesc       *prometheus.Desc
+	RecordErrorCountDesc  *prometheus.Desc
+	RequestCountDesc      *prometheus.Desc
+	RequestErrorCountDesc *prometheus.Desc
 }
 
 // NewCollector initializes and returns a new Gracc collector.
@@ -53,6 +59,31 @@ func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 	} else {
 		g.Output = o
 	}
+
+	g.RecordCountDesc = prometheus.NewDesc(
+		"gracc_records_total",
+		"Number of records processed.",
+		nil,
+		nil,
+	)
+	g.RecordErrorCountDesc = prometheus.NewDesc(
+		"gracc_record_errors_total",
+		"Number of records with errors.",
+		nil,
+		nil,
+	)
+	g.RequestCountDesc = prometheus.NewDesc(
+		"gracc_requests_total",
+		"Number of requests received.",
+		nil,
+		nil,
+	)
+	g.RequestErrorCountDesc = prometheus.NewDesc(
+		"gracc_request_errors_total",
+		"Number of requests with errors.",
+		nil,
+		nil,
+	)
 
 	return &g, nil
 }
@@ -82,6 +113,38 @@ func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 	if err := enc.Encode(stats); err != nil {
 		http.Error(w, "error writing stats", http.StatusInternalServerError)
 	}
+}
+
+func (g *GraccCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- g.RecordCountDesc
+	ch <- g.RecordErrorCountDesc
+	ch <- g.RequestCountDesc
+	ch <- g.RequestErrorCountDesc
+}
+
+func (g *GraccCollector) Collect(ch chan<- prometheus.Metric) {
+	g.m.Lock()
+	ch <- prometheus.MustNewConstMetric(
+		g.RecordCountDesc,
+		prometheus.CounterValue,
+		float64(g.Stats.Records),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		g.RecordErrorCountDesc,
+		prometheus.CounterValue,
+		float64(g.Stats.RecordErrors),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		g.RequestCountDesc,
+		prometheus.CounterValue,
+		float64(g.Stats.Requests),
+	)
+	ch <- prometheus.MustNewConstMetric(
+		g.RequestErrorCountDesc,
+		prometheus.CounterValue,
+		float64(g.Stats.RequestErrors),
+	)
+	g.m.Unlock()
 }
 
 // Request is a wrapper struct for passing around an HTTP request
