@@ -7,23 +7,27 @@ import (
 	"testing"
 )
 
-type JURTest struct {
+type RecordTest struct {
 	SourceXMLFile string
 	RefJSONFile   string
 }
 
-var JURTests = []JURTest{
+var Tests = []RecordTest{
 	{"test_data/JobUsageRecord01.xml", "test_data/JobUsageRecord01.json"},
 	{"test_data/JobUsageRecord02.xml", "test_data/JobUsageRecord02.json"},
 	{"test_data/JobUsageRecord03.xml", "test_data/JobUsageRecord03.json"},
 	{"test_data/JobUsageRecord04.xml", "test_data/JobUsageRecord04.json"},
 	{"test_data/JobUsageRecord05.xml", "test_data/JobUsageRecord05.json"},
 	{"test_data/JobUsageRecord06.xml", "test_data/JobUsageRecord06.json"},
+	{"test_data/StorageElement01.xml", "test_data/StorageElement01.json"},
+	{"test_data/StorageElement02.xml", "test_data/StorageElement02.json"},
+	{"test_data/StorageElementRecord01.xml", "test_data/StorageElementRecord01.json"},
+	{"test_data/StorageElementRecord02.xml", "test_data/StorageElementRecord02.json"},
 }
 
-func TestJURUnmarshal(t *testing.T) {
-	for _, jt := range JURTests {
-		// read source XML and parse into JobUsageRecord
+func TestUnmarshal(t *testing.T) {
+	for _, jt := range Tests {
+		// read source XML and parse into Record
 		f, err := os.Open(jt.SourceXMLFile)
 		if err != nil {
 			t.Error(err)
@@ -33,9 +37,9 @@ func TestJURUnmarshal(t *testing.T) {
 		if _, err := buf.ReadFrom(f); err != nil {
 			t.Error(err)
 		}
-		var v JobUsageRecord
-		if err := v.ParseXML(buf.Bytes()); err != nil {
-			t.Error(err)
+		v, err := ParseRecordXML(buf.Bytes())
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		// read reference JSON
@@ -57,6 +61,7 @@ func TestJURUnmarshal(t *testing.T) {
 		if j, err := v.ToJSON("    "); err != nil {
 			t.Error(err)
 		} else {
+			//t.Logf("%s", j)
 			// Compare
 			var r map[string]interface{}
 			if err := json.Unmarshal(j, &r); err != nil {
