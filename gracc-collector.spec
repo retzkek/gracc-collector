@@ -1,5 +1,5 @@
 Name:           gracc-collector
-Version:        0.04.00
+Version:        0.04.01
 Release:        1%{?dist}
 Summary:        Gratia-compatible collector for grid accounting records
 License:        MIT
@@ -67,6 +67,9 @@ getent passwd gracc >/dev/null || \
 exit 0
 
 %changelog
+* Mon Oct 17 2016 Kevin Retzke <kretzke@fnal.gov> - 0.04.01-1
+- Package v0.4.1
+
 * Mon Aug 15 2016 Kevin Retzke <kretzke@fnal.gov> - 0.04.00-1
 - Package v0.4.0
 
