@@ -1,4 +1,5 @@
 {
+    "type": "StorageElement",
     "UniqueID": "Generic:SE:Generic",
     "SE": "Generic",
     "Name": "Generic",

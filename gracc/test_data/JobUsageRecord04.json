@@ -1,4 +1,5 @@
 {
+    "type": "JobUsageRecord",
     "RecordId": "ce01.brazos.tamu.edu:3976909.14",
     "CreateTime": "2016-05-02T16:36:19Z",
     "GlobalJobId": "slurm:SLURM/brazos/brazos.13634504_4",

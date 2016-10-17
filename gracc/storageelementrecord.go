@@ -45,6 +45,8 @@ func (ser *StorageElementRecord) Raw() []byte {
 func (ser *StorageElementRecord) ToJSON(indent string) ([]byte, error) {
 	var r = make(map[string]interface{})
 
+	r["type"] = "StorageElementRecord"
+
 	r["UniqueID"] = ser.UniqueID
 
 	// Standard time instants

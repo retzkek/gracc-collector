@@ -1,4 +1,5 @@
 {
+    "type": "StorageElementRecord",
     "UniqueID": "UMN-CMS-SE:SE:UMN-CMS-SE",
     "MeasurementType": "raw",
     "StorageType": "disk",

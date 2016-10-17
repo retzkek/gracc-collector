@@ -166,6 +166,8 @@ func (jur *JobUsageRecord) Raw() []byte {
 func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 	var r = make(map[string]interface{})
 
+	r["type"] = "JobUsageRecord"
+
 	// Flatten identity blocks
 	for k, v := range jur.RecordIdentity.flatten() {
 		r[k] = v

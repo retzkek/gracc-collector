@@ -19,7 +19,7 @@ services:
         depends_on:
         - rabbitmq
     gracc-stash-raw:
-        image: retzkek/gracc-stash-raw
+        image: retzkek/gracc-stash-raw:debug
         environment:
         - GRACC_INSTANCE=test
         - GRACC_STREAM=osg

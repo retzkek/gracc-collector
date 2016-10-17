@@ -1,4 +1,5 @@
 {
+    "type": "JobUsageRecord",
     "RecordId": "http://www.emsl.pnl.gov/mscf/colony/PBS.1234.0",
     "CreateTime": "2003-08-13T18:56:56Z",
     "LocalJobId": "PBS.1234.0",

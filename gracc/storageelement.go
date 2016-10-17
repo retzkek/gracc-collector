@@ -40,6 +40,8 @@ func (se *StorageElement) Raw() []byte {
 func (se *StorageElement) ToJSON(indent string) ([]byte, error) {
 	var r = make(map[string]interface{})
 
+	r["type"] = "StorageElement"
+
 	r["UniqueID"] = se.UniqueID
 
 	// Standard time instants

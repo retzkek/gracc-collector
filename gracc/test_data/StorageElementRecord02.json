@@ -1,4 +1,5 @@
 {
+    "type": "StorageElementRecord",
     "UniqueID": "Generic:SE:Generic",
     "MeasurementType": "raw",
     "StorageType": "disk",
