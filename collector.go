@@ -257,8 +257,8 @@ ScannerLoop:
 			}
 			g.Events <- GOT_RECORD
 			// publish record
-			var jur gracc.JobUsageRecord
-			if err := jur.ParseXML([]byte(parts["rec"])); err != nil {
+			rec, err := gracc.ParseRecordXML([]byte(parts["rec"]))
+			if err != nil {
 				log.WithFields(log.Fields{
 					"error": err,
 					"rec":   parts["rec"],
@@ -268,7 +268,7 @@ ScannerLoop:
 				g.Events <- RECORD_ERROR
 				return fmt.Errorf("error processing replicated record")
 			}
-			if err := w.PublishRecord(&jur); err != nil {
+			if err := w.PublishRecord(rec); err != nil {
 				log.Error(err)
 				g.Events <- RECORD_ERROR
 				return fmt.Errorf("error publishing record")
