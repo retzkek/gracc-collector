@@ -1,0 +1,19 @@
+{
+    "type": "StorageElement",
+    "UniqueID": "UMN-CMS-SE:SE:UMN-CMS-SE",
+    "SE": "UMN-CMS-SE",
+    "Name": "UMN-CMS-SE",
+    "SpaceType": "SE",
+    "Timestamp": "2012-10-30T00:26:54Z",
+    "Implementation": "Hadoop",
+    "Version": "Hadoop 0.20.2+737\n        Subversion  -r 98c55c28258aa6f42250569bd7fa431ac657bdbd\n        Compiled by mockbuild on Tue Nov 29 02:52:15 EST 2011\n        From source with checksum 15b415650bf28785987688b54d5e292c\n    ",
+    "Status": "Production",
+    "ProbeName": "hadoop-storage:caffeine.spa.umn.edu",
+    "SiteName": "UMN-CMS-SE",
+    "Grid": "OSG",
+    "Origin_hop": 1,
+    "OriginServerDate": "2012-10-30T00:26:59Z",
+    "OriginSenderHost": "128.101.221.170",
+    "OriginSender": "hadoop-storage:caffeine.spa.umn.edu",
+    "OriginCollector": "collector:gr12x0.fnal.gov/131.225.152.85"
+}

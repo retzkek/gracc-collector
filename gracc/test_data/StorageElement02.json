@@ -1,0 +1,14 @@
+{
+    "type": "StorageElement",
+    "UniqueID": "Generic:SE:Generic",
+    "SE": "Generic",
+    "Name": "Generic",
+    "SpaceType": "SE",
+    "Timestamp": "2013-03-25T18:37:59Z",
+    "Implementation": "dCache",
+    "Version": "production-1.9.5-26",
+    "Status": "Production",
+    "ProbeName": "dCache-storage:dcache-admin.fnal.gov",
+    "SiteName": "dcache-admin.fnal.gov",
+    "Grid": "OSG"
+}

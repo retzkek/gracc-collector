@@ -1,4 +1,5 @@
 {
+    "type": "JobUsageRecord",
     "Charge": "0.0",
     "Charge_description": "The spot price charged in last hour corresponding to launch time",
     "Charge_formula": "$/instance hr",

@@ -256,24 +256,29 @@ ScannerLoop:
 				}
 			}
 			g.Events <- GOT_RECORD
-			// publish record
-			var jur gracc.JobUsageRecord
-			if err := jur.ParseXML([]byte(parts["rec"])); err != nil {
-				log.WithFields(log.Fields{
-					"error": err,
-					"rec":   parts["rec"],
-					"raw":   parts["raw"],
-					"extra": parts["extra"],
-				}).Error("error processing record XML")
-				g.Events <- RECORD_ERROR
-				return fmt.Errorf("error processing replicated record")
-			}
-			if err := w.PublishRecord(&jur); err != nil {
-				log.Error(err)
-				g.Events <- RECORD_ERROR
-				return fmt.Errorf("error publishing record")
-			}
 			received++
+			if received > bundlesize {
+				// skip extra records, but keep counting and return an error at the end
+				g.Events <- RECORD_ERROR
+			} else {
+				// publish record
+				rec, err := gracc.ParseRecordXML([]byte(parts["rec"]))
+				if err != nil {
+					log.WithFields(log.Fields{
+						"error": err,
+						"rec":   parts["rec"],
+						"raw":   parts["raw"],
+						"extra": parts["extra"],
+					}).Error("error processing record XML")
+					g.Events <- RECORD_ERROR
+					return fmt.Errorf("error processing replicated record")
+				}
+				if err := w.PublishRecord(rec); err != nil {
+					log.Error(err)
+					g.Events <- RECORD_ERROR
+					return fmt.Errorf("error publishing record")
+				}
+			}
 		}
 	}
 	// check for scanner errors

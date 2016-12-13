@@ -699,4 +699,64 @@ replication|<JobUsageRecord xmlns="http://www.gridforum.org/2003/ur-wg"
 <urwg:Processors consumptionRate="0" metric="total">1</urwg:Processors>
 <urwg:TimeInstant description="LRMS event timestamp">2016-02-24T20:37:46Z</urwg:TimeInstant>
 <urwg:Resource urwg:description="LocalUserGroup">osgvo</urwg:Resource>
-<urwg:ProbeName>pbs:itbv-ce-pbs.mwt2.org</urwg:ProbeName><urwg:SiteName>UC_ITB_PBS</urwg:SiteName><urwg:Grid>OSG-ITB</urwg:Grid><urwg:Resource urwg:description="ResourceType">Batch</urwg:Resource></UsageRecord>||
+<urwg:ProbeName>pbs:itbv-ce-pbs.mwt2.org</urwg:ProbeName><urwg:SiteName>UC_ITB_PBS</urwg:SiteName><urwg:Grid>OSG-ITB</urwg:Grid><urwg:Resource urwg:description="ResourceType">Batch</urwg:Resource></UsageRecord>||replication|<StorageElement xmlns:urwg="http://www.gridforum.org/2003/ur-wg">
+    <UniqueID >UMN-CMS-SE:SE:UMN-CMS-SE</UniqueID>
+    <SE >UMN-CMS-SE</SE>
+    <Name >UMN-CMS-SE</Name>
+    <SpaceType >SE</SpaceType>
+    <Timestamp >2012-10-30T00:26:54Z</Timestamp>
+    <Implementation >Hadoop</Implementation>
+    <Version >Hadoop 0.20.2+737
+        Subversion  -r 98c55c28258aa6f42250569bd7fa431ac657bdbd
+        Compiled by mockbuild on Tue Nov 29 02:52:15 EST 2011
+        From source with checksum 15b415650bf28785987688b54d5e292c
+    </Version>
+    <Status >Production</Status>
+    <ProbeName >hadoop-storage:caffeine.spa.umn.edu</ProbeName>
+    <SiteName >UMN-CMS-SE</SiteName>
+    <Grid >OSG</Grid>
+    <Origin hop="1" ><ServerDate >2012-10-30T00:26:59Z</ServerDate>
+        <Connection><SenderHost>128.101.221.170</SenderHost>
+            <Sender>hadoop-storage:caffeine.spa.umn.edu</Sender>
+            <Collector>collector:gr12x0.fnal.gov/131.225.152.85</Collector>
+        </Connection>
+    </Origin>
+</StorageElement>|||replication|<StorageElement xmlns:urwg="http://www.gridforum.org/2003/ur-wg">
+    <UniqueID >Generic:SE:Generic</UniqueID>
+    <SE >Generic</SE>
+    <Name >Generic</Name>
+    <SpaceType >SE</SpaceType>
+    <Timestamp >2013-03-25T18:37:59Z</Timestamp>
+    <Implementation >dCache</Implementation>
+    <Version >production-1.9.5-26</Version>
+    <Status >Production</Status>
+    <ProbeName >dCache-storage:dcache-admin.fnal.gov</ProbeName>
+    <SiteName >dcache-admin.fnal.gov</SiteName>
+    <Grid >OSG</Grid>
+</StorageElement>|||replication|<StorageElementRecord xmlns:urwg="http://www.gridforum.org/2003/ur-wg">
+    <UniqueID >UMN-CMS-SE:SE:UMN-CMS-SE</UniqueID>
+    <MeasurementType >raw</MeasurementType>
+    <StorageType >disk</StorageType>
+    <Timestamp >2012-10-30T00:26:54Z</Timestamp>
+    <TotalSpace >158961960684544</TotalSpace>
+    <UsedSpace >125757757218816</UsedSpace>
+    <FreeSpace >33204203465728</FreeSpace>
+    <FileCountLimit >2147483647</FileCountLimit>
+    <FileCount >37032</FileCount>
+    <ProbeName >hadoop-storage:caffeine.spa.umn.edu</ProbeName>
+    <Origin hop="1" ><ServerDate >2012-10-30T00:26:59Z</ServerDate>
+        <Connection><SenderHost>128.101.221.170</SenderHost>
+            <Sender>hadoop-storage:caffeine.spa.umn.edu</Sender>
+            <Collector>collector:gr12x0.fnal.gov/131.225.152.85</Collector>
+        </Connection>
+    </Origin>
+</StorageElementRecord>|||replication|<StorageElementRecord xmlns:urwg="http://www.gridforum.org/2003/ur-wg">
+    <UniqueID >Generic:SE:Generic</UniqueID>
+    <MeasurementType >raw</MeasurementType>
+    <StorageType >disk</StorageType>
+    <Timestamp >2013-03-25T18:37:59Z</Timestamp>
+    <TotalSpace >16106127360</TotalSpace>
+    <UsedSpace >103264</UsedSpace>
+    <FreeSpace >16106024096</FreeSpace>
+    <ProbeName >dCache-storage:dcache-admin.fnal.gov</ProbeName>
+</StorageElementRecord>|||

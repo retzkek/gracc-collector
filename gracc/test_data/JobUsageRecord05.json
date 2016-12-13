@@ -1,4 +1,5 @@
 {
+    "type": "JobUsageRecord",
     "CpuDuration": 0,
     "CpuDuration_system": 0,
     "CpuDuration_system_description": "Was entered in seconds",

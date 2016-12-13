@@ -1,0 +1,11 @@
+{
+    "type": "StorageElementRecord",
+    "UniqueID": "Generic:SE:Generic",
+    "MeasurementType": "raw",
+    "StorageType": "disk",
+    "Timestamp": "2013-03-25T18:37:59Z",
+    "TotalSpace": 16106127360,
+    "UsedSpace": 103264,
+    "FreeSpace": 16106024096,
+    "ProbeName": "dCache-storage:dcache-admin.fnal.gov"
+}

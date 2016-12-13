@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
-	duration "github.com/retzkek/iso8601duration"
 )
 
 type recordIdentity struct {
@@ -83,43 +81,6 @@ func (i *userIdentity) flatten() map[string]interface{} {
 	return r
 }
 
-type field struct {
-	XMLName     xml.Name
-	Value       string `xml:",chardata"`
-	Description string `xml:"description,attr,omitempty"`
-	Unit        string `xml:"unit,attr,omitempty"`
-	PhaseUnit   string `xml:"phaseUnit,attr,omitempty"`
-	StorageUnit string `xml:"storageUnit,attr,omitempty"`
-	Formula     string `xml:"formula,attr,omitempty"`
-	Metric      string `xml:"metric,attr,omitempty"`
-}
-
-func (f *field) flatten() map[string]interface{} {
-	var r = make(map[string]interface{})
-	if f.Value != "" {
-		r[f.XMLName.Local] = f.Value
-	}
-	if f.Description != "" {
-		r[f.XMLName.Local+"_description"] = f.Description
-	}
-	if f.Unit != "" {
-		r[f.XMLName.Local+"_unit"] = f.Unit
-	}
-	if f.PhaseUnit != "" {
-		r[f.XMLName.Local+"_phaseUnit"] = convertDurationToSeconds(f.PhaseUnit)
-	}
-	if f.StorageUnit != "" {
-		r[f.XMLName.Local+"_storageUnit"] = f.StorageUnit
-	}
-	if f.Formula != "" {
-		r[f.XMLName.Local+"_formula"] = f.Formula
-	}
-	if f.Metric != "" {
-		r[f.XMLName.Local+"_metric"] = f.Metric
-	}
-	return r
-}
-
 type cpuDuration struct {
 	UsageType   string `xml:"usageType,attr"`
 	Description string `xml:"description,attr"`
@@ -129,47 +90,6 @@ type cpuDuration struct {
 type wallDuration struct {
 	Description string `xml:"description,attr"`
 	Value       string `xml:",chardata"`
-}
-
-type timeDuration struct {
-	XMLName     xml.Name
-	Value       string `xml:",chardata"`
-	Description string `xml:"description,attr"`
-	Type        string `xml:"type,attr,omitempty"`
-}
-
-func (t *timeDuration) flatten() map[string]interface{} {
-	k := "unknown"
-	if t.Type != "" {
-		k = strings.Map(mapForKey, t.Type)
-	}
-	var rr = make(map[string]interface{})
-	rr[k] = convertDurationToSeconds(t.Value)
-	if t.Description != "" {
-		rr[k+"_description"] = t.Description
-	}
-	return rr
-}
-
-type timeInstant struct {
-	XMLName     xml.Name
-	Value       time.Time `xml:",chardata"`
-	Description string    `xml:"description,attr"`
-	Type        string    `xml:"type,attr,omitempty"`
-}
-
-func (t *timeInstant) flatten() map[string]interface{} {
-	k := "unknown"
-	if t.Type != "" {
-		k = strings.Map(mapForKey, t.Type)
-	}
-	var rr = map[string]interface{}{
-		k: t.Value.Format(time.RFC3339),
-	}
-	if t.Description != "" {
-		rr[k+"_description"] = t.Description
-	}
-	return rr
 }
 
 type resource struct {
@@ -201,14 +121,6 @@ func (r *resource) flatten() map[string]interface{} {
 	return rr
 }
 
-func mapForKey(c rune) rune {
-	switch c {
-	case '.', ' ':
-		return '-'
-	}
-	return c
-}
-
 type JobUsageRecord struct {
 	XMLName            xml.Name       `xml:"JobUsageRecord"`
 	RecordIdentity     recordIdentity `xml:",omitempty"`
@@ -224,6 +136,7 @@ type JobUsageRecord struct {
 	ConsumableResource []resource     `xml:",omitempty"`
 	PhaseResource      []resource     `xml:",omitempty"`
 	VolumeResource     []resource     `xml:",omitempty"`
+	Origin             origin         `xml:",omitempty"`
 	Fields             []field        `xml:",any"`
 	raw                []byte         `xml:"-"`
 }
@@ -252,6 +165,8 @@ func (jur *JobUsageRecord) Raw() []byte {
 // if empty no indentation or pretty-printing is performed.
 func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 	var r = make(map[string]interface{})
+
+	r["type"] = "JobUsageRecord"
 
 	// Flatten identity blocks
 	for k, v := range jur.RecordIdentity.flatten() {
@@ -336,6 +251,11 @@ func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 		}
 	}
 
+	// origin
+	for k, v := range jur.Origin.flatten() {
+		r[k] = v
+	}
+
 	// add XML
 	r["RawXML"] = string(jur.Raw())
 
@@ -343,12 +263,4 @@ func (jur *JobUsageRecord) ToJSON(indent string) ([]byte, error) {
 		return json.MarshalIndent(r, "", indent)
 	}
 	return json.Marshal(r)
-}
-
-func convertDurationToSeconds(dur string) float64 {
-	d, err := duration.ParseString(dur)
-	if err != nil {
-		return 0.0
-	}
-	return d.ToDuration().Seconds()
 }

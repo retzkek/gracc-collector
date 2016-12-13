@@ -13,12 +13,13 @@ services:
         environment:
         - GRACC_AMQP_HOST=rabbitmq
         - GRACC_AMQP_EXCHANGE=gracc.osg.raw
+        - GRACC_LOGLEVEL=debug
         ports:
         - "8080:8080"
         depends_on:
         - rabbitmq
     gracc-stash-raw:
-        image: retzkek/gracc-stash-raw
+        image: retzkek/gracc-stash-raw:debug
         environment:
         - GRACC_INSTANCE=test
         - GRACC_STREAM=osg
