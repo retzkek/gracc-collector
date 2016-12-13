@@ -50,6 +50,31 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	if err := a.setup(); err != nil {
 		return nil, err
 	}
+	// declare exchange
+	ch, err := a.OpenChannel()
+	if err != nil {
+		log.Error(err)
+		return nil, fmt.Errorf("error opening channel")
+	}
+	log.WithFields(log.Fields{
+		"name":       a.Config.Exchange,
+		"type":       a.Config.ExchangeType,
+		"durable":    a.Config.Durable,
+		"autoDelete": a.Config.AutoDelete,
+		"internal":   a.Config.Internal,
+	}).Debug("declaring exchange")
+	if err = ch.ExchangeDeclare(a.Config.Exchange,
+		a.Config.ExchangeType,
+		a.Config.Durable,
+		a.Config.AutoDelete,
+		a.Config.Internal,
+		false,
+		nil); err != nil {
+		ch.Close()
+		log.Error(err)
+		return nil, fmt.Errorf("error declaring exchange")
+	}
+	ch.Close()
 	return a, nil
 }
 
@@ -145,25 +170,6 @@ func (a *AMQPOutput) NewWorker(bundleSize int) (*AMQPWorker, error) {
 	if err = ch.Confirm(false); err != nil {
 		ll.Error(err)
 		return nil, fmt.Errorf("Channel could not be put into confirm mode")
-	}
-	// declare exchange
-	ll.WithFields(log.Fields{
-		"name":       a.Config.Exchange,
-		"type":       a.Config.ExchangeType,
-		"durable":    a.Config.Durable,
-		"autoDelete": a.Config.AutoDelete,
-		"internal":   a.Config.Internal,
-	}).Debug("declaring exchange")
-	if err = ch.ExchangeDeclare(a.Config.Exchange,
-		a.Config.ExchangeType,
-		a.Config.Durable,
-		a.Config.AutoDelete,
-		a.Config.Internal,
-		false,
-		nil); err != nil {
-		ch.Close()
-		ll.Error(err)
-		return nil, fmt.Errorf("error declaring exchange")
 	}
 	return &AMQPWorker{
 		Channel:  ch,
