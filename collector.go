@@ -179,12 +179,60 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch command {
 	case "update":
 		g.handleUpdate(req)
+	case "multiupdate":
+		g.handleMultiUpdate(req)
 	default:
 		g.Events <- REQUEST_ERROR
 		g.handleError(req, fmt.Errorf("unknown command"), http.StatusBadRequest)
 	}
 }
 
+// handleMultiUpdate handles the typical request from a Gratia probe.
+//
+// Typical fields included in request:
+//     command: update type (typ. "multiupdate")
+//     arg1: record bundle XML
+//     bundlesize: number of records in bundle
+//     from: the name of the sender
+// Extra:
+//     xmlfiles: number of records already passed to GratiaCore, still to be sent and still in individual xml files (i.e. number of gratia record in the outbox)
+//     tarfiles: number of outstanding tar files
+//     maxpendingfiles: 'current' number of files in a new tar file (i.e. an estimate of the number of individual records per tar file).
+//     backlog: estimated amount of data to be processed by the probe
+func (g *GraccCollector) handleMultiUpdate(req *Request) {
+	if err := g.checkRequiredKeys(req, []string{"arg1", "from"}); err != nil {
+		g.Events <- REQUEST_ERROR
+		g.handleError(req, err, http.StatusBadRequest)
+		return
+	}
+	updateLogger := log.WithFields(log.Fields{
+		"from": req.r.FormValue("from"),
+	})
+	if err := g.checkRequiredKeys(req, []string{"bundlesize"}); err != nil {
+		g.Events <- REQUEST_ERROR
+		g.handleError(req, err, http.StatusBadRequest)
+		return
+	}
+	bundlesize, err := strconv.Atoi(req.r.FormValue("bundlesize"))
+	if err != nil {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", err).Error("error handling update")
+		g.handleError(req, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
+		return
+	}
+	if err := g.ProcessBundle(req.r.FormValue("arg1"), bundlesize); err == nil {
+		updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received update")
+		g.handleSuccess(req)
+		return
+	} else {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", err).Error("error handling update")
+		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+		return
+	}
+}
+
+// handleUpdate handles the typical request from a Gratia collector.
 func (g *GraccCollector) handleUpdate(req *Request) {
 	if err := g.checkRequiredKeys(req, []string{"arg1", "from"}); err != nil {
 		g.Events <- REQUEST_ERROR
