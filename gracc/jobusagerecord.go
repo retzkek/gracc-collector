@@ -154,6 +154,11 @@ func (jur *JobUsageRecord) Id() string {
 	return jur.RecordIdentity.RecordId
 }
 
+// Type returns the type of the record.
+func (jur *JobUsageRecord) Type() string {
+	return jur.XMLName.Local
+}
+
 // Raw returns the unaltered source of the record.
 func (jur *JobUsageRecord) Raw() []byte {
 	return jur.raw

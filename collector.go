@@ -229,40 +229,19 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 		"StorageElementRecord": len(bun.StorageElementRecords),
 		"Other":                len(bun.OtherRecords),
 	}).Debug("processed XML record bundle")
-
 	if n := bun.RecordCount(); n != bundlesize {
 		g.Events <- REQUEST_ERROR
 		updateLogger.WithField("error", "bundlesize mismatch").Error("error handling update")
 		g.handleError(req, fmt.Errorf("number of records in bundle (%d) different than expected (%d)", n, bundlesize), http.StatusBadRequest)
 		return
 	}
-	for _, r := range bun.OtherRecords {
-		updateLogger.WithField("name", r.XMLName).Warning("bundle contains unrecognized record type; ignoring!")
-	}
-	// setup AMQP channel
-	w, err := g.Output.NewWorker(bundlesize)
-	if err != nil {
+	if err := g.sendBundle(&bun); err != nil {
 		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", err).Error("error handling update")
+		updateLogger.WithField("error", err).Error("error sending update")
 		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+		return
 	}
-	defer w.Close()
-
-	for _, rec := range bun.Records() {
-		if err := w.PublishRecord(rec); err != nil {
-			log.Error(err)
-			g.Events <- RECORD_ERROR
-			updateLogger.WithField("error", err).Error("error handling update")
-			g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
-		}
-	}
-	// wait for confirms that all records were received and routed
-	if err := w.Wait(g.Config.TimeoutDuration); err != nil {
-		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", err).Error("error handling update")
-		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
-	}
-	updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received update")
+	updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received multiupdate")
 	g.handleSuccess(req)
 }
 
@@ -280,30 +259,40 @@ func (g *GraccCollector) handleUpdate(req *Request) {
 		updateLogger.Info("received ping")
 		g.handleSuccess(req)
 		return
-	} else {
-		if err := g.checkRequiredKeys(req, []string{"bundlesize"}); err != nil {
-			g.Events <- REQUEST_ERROR
-			g.handleError(req, err, http.StatusBadRequest)
-			return
-		}
-		bundlesize, err := strconv.Atoi(req.r.FormValue("bundlesize"))
-		if err != nil {
-			g.Events <- REQUEST_ERROR
-			updateLogger.WithField("error", err).Error("error handling update")
-			g.handleError(req, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
-			return
-		}
-		if err := g.ProcessBundle(req.r.FormValue("arg1"), bundlesize); err == nil {
-			updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received update")
-			g.handleSuccess(req)
-			return
-		} else {
-			g.Events <- REQUEST_ERROR
-			updateLogger.WithField("error", err).Error("error handling update")
-			g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
-			return
-		}
 	}
+	if err := g.checkRequiredKeys(req, []string{"bundlesize"}); err != nil {
+		g.Events <- REQUEST_ERROR
+		g.handleError(req, err, http.StatusBadRequest)
+		return
+	}
+	bundlesize, err := strconv.Atoi(req.r.FormValue("bundlesize"))
+	if err != nil {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", err).Error("error handling update")
+		g.handleError(req, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
+		return
+	}
+	bun, err := g.processBundle(req.r.FormValue("arg1"))
+	if err != nil {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", err).Error("error handling update")
+		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+		return
+	}
+	if n := bun.RecordCount(); n != bundlesize {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", "bundlesize mismatch").Error("error handling update")
+		g.handleError(req, fmt.Errorf("number of records in bundle (%d) different than expected (%d)", n, bundlesize), http.StatusBadRequest)
+		return
+	}
+	if err := g.sendBundle(bun); err != nil {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", err).Error("error sending update")
+		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+		return
+	}
+	updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received update")
+	g.handleSuccess(req)
 }
 
 func (g *GraccCollector) checkRequiredKeys(req *Request, keys []string) error {
@@ -312,6 +301,79 @@ func (g *GraccCollector) checkRequiredKeys(req *Request, keys []string) error {
 			err := fmt.Sprintf("no %v", k)
 			return fmt.Errorf(err)
 		}
+	}
+	return nil
+}
+
+// processBundle parses a replication bundle.
+func (g *GraccCollector) processBundle(bundle string) (*gracc.RecordBundle, error) {
+	var bun gracc.RecordBundle
+	bs := bufio.NewScanner(strings.NewReader(bundle))
+	bs.Buffer(make([]byte, g.Config.StartBufferSize), g.Config.MaxBufferSize)
+	bs.Split(ScanBundle)
+ScannerLoop:
+	for bs.Scan() {
+		tok := bs.Text()
+		switch tok {
+		case "":
+			continue
+		case "replication":
+			parts := make(map[string]string, 3)
+			for _, p := range []string{"rec", "raw", "extra"} {
+				if bs.Scan() {
+					parts[p] = bs.Text()
+				} else {
+					break ScannerLoop
+				}
+			}
+			rec, err := gracc.ParseRecordXML([]byte(parts["rec"]))
+			if err != nil {
+				log.WithFields(log.Fields{
+					"error": err,
+					"rec":   parts["rec"],
+					"raw":   parts["raw"],
+					"extra": parts["extra"],
+				}).Error("error processing record XML")
+				return nil, fmt.Errorf("error processing replicated record")
+			}
+			bun.AddRecord(rec)
+		}
+	}
+	// check for scanner errors
+	if err := bs.Err(); err != nil {
+		return nil, fmt.Errorf("error parsing bundle: %s", err)
+	}
+	return &bun, nil
+}
+
+// sendBundle publishes the records in RecordBundle bun to AMQP.
+func (g *GraccCollector) sendBundle(bun *gracc.RecordBundle) error {
+	// setup AMQP channel
+	w, err := g.Output.NewWorker(bun.RecordCount())
+	if err != nil {
+		log.Error(err)
+		return fmt.Errorf("error publishing bundle")
+	}
+	defer w.Close()
+
+	for _, r := range bun.OtherRecords {
+		g.Events <- GOT_RECORD
+		g.Events <- RECORD_ERROR
+		log.WithField("type", r.XMLName).Warning("bundle contains unrecognized record type; ignoring!")
+	}
+
+	for _, rec := range bun.Records() {
+		g.Events <- GOT_RECORD
+		if err := w.PublishRecord(rec); err != nil {
+			log.Error(err)
+			g.Events <- RECORD_ERROR
+			return fmt.Errorf("error publishing record")
+		}
+	}
+	// wait for confirms that all records were received and routed
+	if err := w.Wait(g.Config.TimeoutDuration); err != nil {
+		log.Error(err)
+		return fmt.Errorf("timeout while publishing bundle")
 	}
 	return nil
 }
@@ -368,75 +430,4 @@ func ScanBundle(data []byte, atEOF bool) (advance int, token []byte, err error) 
 	}
 	// Request more data.
 	return 0, nil, nil
-}
-
-// ProcessBundle parses a bundle and publishes records to AMQP broker.
-func (g *GraccCollector) ProcessBundle(bundle string, bundlesize int) error {
-	// setup AMQP channel
-	w, err := g.Output.NewWorker(bundlesize)
-	if err != nil {
-		log.Error("error starting AMQP worker")
-		return err
-	}
-	defer w.Close()
-
-	// Parse bundle
-	received := 0
-	bs := bufio.NewScanner(strings.NewReader(bundle))
-	bs.Buffer(make([]byte, g.Config.StartBufferSize), g.Config.MaxBufferSize)
-	bs.Split(ScanBundle)
-ScannerLoop:
-	for bs.Scan() {
-		tok := bs.Text()
-		switch tok {
-		case "":
-			continue
-		case "replication":
-			parts := make(map[string]string, 3)
-			for _, p := range []string{"rec", "raw", "extra"} {
-				if bs.Scan() {
-					parts[p] = bs.Text()
-				} else {
-					break ScannerLoop
-				}
-			}
-			g.Events <- GOT_RECORD
-			received++
-			if received > bundlesize {
-				// skip extra records, but keep counting and return an error at the end
-				g.Events <- RECORD_ERROR
-			} else {
-				// publish record
-				rec, err := gracc.ParseRecordXML([]byte(parts["rec"]))
-				if err != nil {
-					log.WithFields(log.Fields{
-						"error": err,
-						"rec":   parts["rec"],
-						"raw":   parts["raw"],
-						"extra": parts["extra"],
-					}).Error("error processing record XML")
-					g.Events <- RECORD_ERROR
-					return fmt.Errorf("error processing replicated record")
-				}
-				if err := w.PublishRecord(rec); err != nil {
-					log.Error(err)
-					g.Events <- RECORD_ERROR
-					return fmt.Errorf("error publishing record")
-				}
-			}
-		}
-	}
-	// check for scanner errors
-	if err := bs.Err(); err != nil {
-		return fmt.Errorf("error parsing bundle: %s", err)
-	}
-	// check that we got all expected records
-	if received != bundlesize {
-		return fmt.Errorf("actual bundle size (%d) different than expected (%d)", received, bundlesize)
-	}
-	// wait for confirms that all records were received and routed
-	if err := w.Wait(g.Config.TimeoutDuration); err != nil {
-		return err
-	}
-	return nil
 }

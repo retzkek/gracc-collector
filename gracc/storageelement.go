@@ -28,6 +28,11 @@ func (se *StorageElement) Id() string {
 	return se.UniqueID
 }
 
+// Type returns the type of the record.
+func (se *StorageElement) Type() string {
+	return se.XMLName.Local
+}
+
 // Raw returns the unaltered source of the record.
 func (se *StorageElement) Raw() []byte {
 	return se.raw

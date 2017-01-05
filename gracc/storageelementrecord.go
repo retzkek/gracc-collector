@@ -33,6 +33,11 @@ func (ser *StorageElementRecord) Id() string {
 	return ser.UniqueID
 }
 
+// Type returns the type of the record.
+func (ser *StorageElementRecord) Type() string {
+	return ser.XMLName.Local
+}
+
 // Raw returns the unaltered source of the record.
 func (ser *StorageElementRecord) Raw() []byte {
 	return ser.raw

@@ -35,6 +35,23 @@ func (b *RecordBundle) Records() []Record {
 	return recs
 }
 
+func (b *RecordBundle) AddRecord(rec Record) error {
+	switch rec.(type) {
+	case *JobUsageRecord:
+		b.JobUsageRecords = append(b.JobUsageRecords, *rec.(*JobUsageRecord))
+	case *StorageElement:
+		b.StorageElements = append(b.StorageElements, *rec.(*StorageElement))
+	case *StorageElementRecord:
+		b.StorageElementRecords = append(b.StorageElementRecords, *rec.(*StorageElementRecord))
+	default:
+		b.OtherRecords = append(b.OtherRecords, XMLRecord{
+			XMLName:  xml.Name{Local: rec.Type()},
+			InnerXML: string(rec.Raw()),
+		})
+	}
+	return nil
+}
+
 // XMLRecord is a generic structure for unmarshalling unknown XML data.
 type XMLRecord struct {
 	XMLName  xml.Name

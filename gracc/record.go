@@ -11,6 +11,7 @@ import (
 
 type Record interface {
 	Id() string
+	Type() string
 	ToJSON(indent string) ([]byte, error)
 	Raw() []byte
 }
