@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -200,7 +201,7 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //     maxpendingfiles: 'current' number of files in a new tar file (i.e. an estimate of the number of individual records per tar file).
 //     backlog: estimated amount of data to be processed by the probe
 func (g *GraccCollector) handleMultiUpdate(req *Request) {
-	if err := g.checkRequiredKeys(req, []string{"arg1", "from"}); err != nil {
+	if err := g.checkRequiredKeys(req, []string{"arg1", "from", "bundlesize"}); err != nil {
 		g.Events <- REQUEST_ERROR
 		g.handleError(req, err, http.StatusBadRequest)
 		return
@@ -208,11 +209,6 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 	updateLogger := log.WithFields(log.Fields{
 		"from": req.r.FormValue("from"),
 	})
-	if err := g.checkRequiredKeys(req, []string{"bundlesize"}); err != nil {
-		g.Events <- REQUEST_ERROR
-		g.handleError(req, err, http.StatusBadRequest)
-		return
-	}
 	bundlesize, err := strconv.Atoi(req.r.FormValue("bundlesize"))
 	if err != nil {
 		g.Events <- REQUEST_ERROR
@@ -220,16 +216,54 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 		g.handleError(req, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
 		return
 	}
-	if err := g.ProcessBundle(req.r.FormValue("arg1"), bundlesize); err == nil {
-		updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received update")
-		g.handleSuccess(req)
+	var bun gracc.RecordBundle
+	if err := xml.Unmarshal([]byte(req.r.FormValue("arg1")), &bun); err != nil {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", err).Error("error handling update")
+		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusBadRequest)
 		return
-	} else {
+	}
+	updateLogger.WithFields(log.Fields{
+		"JobUsageRecord":       len(bun.JobUsageRecords),
+		"StorageElement":       len(bun.StorageElements),
+		"StorageElementRecord": len(bun.StorageElementRecords),
+		"Other":                len(bun.OtherRecords),
+	}).Debug("processed XML record bundle")
+
+	if n := bun.RecordCount(); n != bundlesize {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", "bundlesize mismatch").Error("error handling update")
+		g.handleError(req, fmt.Errorf("number of records in bundle (%d) different than expected (%d)", n, bundlesize), http.StatusBadRequest)
+		return
+	}
+	for _, r := range bun.OtherRecords {
+		updateLogger.WithField("name", r.XMLName).Warning("bundle contains unrecognized record type; ignoring!")
+	}
+	// setup AMQP channel
+	w, err := g.Output.NewWorker(bundlesize)
+	if err != nil {
 		g.Events <- REQUEST_ERROR
 		updateLogger.WithField("error", err).Error("error handling update")
 		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
-		return
 	}
+	defer w.Close()
+
+	for _, rec := range bun.Records() {
+		if err := w.PublishRecord(rec); err != nil {
+			log.Error(err)
+			g.Events <- RECORD_ERROR
+			updateLogger.WithField("error", err).Error("error handling update")
+			g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+		}
+	}
+	// wait for confirms that all records were received and routed
+	if err := w.Wait(g.Config.TimeoutDuration); err != nil {
+		g.Events <- REQUEST_ERROR
+		updateLogger.WithField("error", err).Error("error handling update")
+		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+	}
+	updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received update")
+	g.handleSuccess(req)
 }
 
 // handleUpdate handles the typical request from a Gratia collector.
