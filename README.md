@@ -56,6 +56,11 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 # Release Notes
 
+### v1.0.0
+
+* Feature-complete for initial production deployment to replace Gratia collector.
+* Accept XML record bundles ("multiupdate") as would typically be sent by a probe.
+
 ### v0.4.0
 
 * Allow config options to be set by environment variable. 
