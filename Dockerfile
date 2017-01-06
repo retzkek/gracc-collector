@@ -1,8 +1,8 @@
-FROM local/golang:centos7
+FROM centos:7
 
-# Build & Test
-RUN mkdir -p /gopath/src/github.com/opensciencegrid/gracc-collector
-ADD . /gopath/src/github.com/opensciencegrid/gracc-collector
+# install gracc from RPM
+ADD ./target/RPMS/x86_64/ /rpms
+RUN yum -y install $(ls -r /rpms/gracc-collector-*.el7.centos.x86_64.rpm | head -n 1)
 
-WORKDIR /gopath/src/github.com/opensciencegrid/gracc-collector
-CMD make test && make rpm
+EXPOSE 8080
+CMD ["/usr/bin/gracc-collector"]
