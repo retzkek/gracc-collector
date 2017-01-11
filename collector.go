@@ -349,18 +349,23 @@ func (g *GraccCollector) sendBundle(bun *gracc.RecordBundle) error {
 		log.WithField("type", r.XMLName).Warning("bundle contains unrecognized record type; ignoring!")
 	}
 
+	npub := 0
 	for _, rec := range bun.Records() {
 		g.Events <- GOT_RECORD
+		npub += 1
 		if err := w.PublishRecord(rec); err != nil {
 			log.Error(err)
 			g.Events <- RECORD_ERROR
+			npub -= 1
 			return fmt.Errorf("error publishing record")
 		}
 	}
-	// wait for confirms that all records were received and routed
-	if err := w.Wait(g.Config.TimeoutDuration); err != nil {
-		log.Error(err)
-		return fmt.Errorf("timeout while publishing bundle")
+	if npub > 0 {
+		// wait for confirms that all records were received and routed
+		if err := w.Wait(g.Config.TimeoutDuration); err != nil {
+			log.Error(err)
+			return fmt.Errorf("timeout while publishing bundle")
+		}
 	}
 	return nil
 }
