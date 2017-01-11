@@ -193,7 +193,7 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // Typical fields included in request:
 //     command: update type (typ. "multiupdate")
 //     arg1: record bundle XML
-//     bundlesize: number of records in bundle
+//     bundlesize: max number of records in bundle
 //     from: the name of the sender
 // Extra:
 //     xmlfiles: number of records already passed to GratiaCore, still to be sent and still in individual xml files (i.e. number of gratia record in the outbox)
@@ -201,7 +201,7 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 //     maxpendingfiles: 'current' number of files in a new tar file (i.e. an estimate of the number of individual records per tar file).
 //     backlog: estimated amount of data to be processed by the probe
 func (g *GraccCollector) handleMultiUpdate(req *Request) {
-	if err := g.checkRequiredKeys(req, []string{"arg1", "from", "bundlesize"}); err != nil {
+	if err := g.checkRequiredKeys(req, []string{"arg1", "from"}); err != nil {
 		g.Events <- REQUEST_ERROR
 		g.handleError(req, err, http.StatusBadRequest)
 		return
@@ -209,13 +209,6 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 	updateLogger := log.WithFields(log.Fields{
 		"from": req.r.FormValue("from"),
 	})
-	bundlesize, err := strconv.Atoi(req.r.FormValue("bundlesize"))
-	if err != nil {
-		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", err).Error("error handling update")
-		g.handleError(req, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
-		return
-	}
 	var bun gracc.RecordBundle
 	if err := xml.Unmarshal([]byte(req.r.FormValue("arg1")), &bun); err != nil {
 		g.Events <- REQUEST_ERROR
@@ -229,19 +222,13 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 		"StorageElementRecord": len(bun.StorageElementRecords),
 		"Other":                len(bun.OtherRecords),
 	}).Debug("processed XML record bundle")
-	if n := bun.RecordCount(); n != bundlesize {
-		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", "bundlesize mismatch").Error("error handling update")
-		g.handleError(req, fmt.Errorf("number of records in bundle (%d) different than expected (%d)", n, bundlesize), http.StatusBadRequest)
-		return
-	}
 	if err := g.sendBundle(&bun); err != nil {
 		g.Events <- REQUEST_ERROR
 		updateLogger.WithField("error", err).Error("error sending update")
 		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
 		return
 	}
-	updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received multiupdate")
+	updateLogger.WithField("bundlesize", bun.RecordCount()).Info("received multiupdate")
 	g.handleSuccess(req)
 }
 
