@@ -6,8 +6,9 @@ import (
 	"time"
 )
 
+// StorageElementRecord is a flexible container for storage element usage information.
 type StorageElementRecord struct {
-	XMLName        xml.Name  `xml:"StorageElementRecord"`
+	XMLName        xml.Name
 	UniqueID       string    `xml:",omitempty"`
 	Timestamp      time.Time `xml:",omitempty"`
 	TotalSpace     uint64    `xml:",omitempty"`

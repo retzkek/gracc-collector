@@ -23,6 +23,7 @@ var Tests = []RecordTest{
 	{"test_data/StorageElement02.xml", "test_data/StorageElement02.json"},
 	{"test_data/StorageElementRecord01.xml", "test_data/StorageElementRecord01.json"},
 	{"test_data/StorageElementRecord02.xml", "test_data/StorageElementRecord02.json"},
+	{"test_data/UsageRecord01.xml", "test_data/UsageRecord01.json"},
 }
 
 func TestUnmarshal(t *testing.T) {

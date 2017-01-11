@@ -8,21 +8,29 @@ import (
 // be sent from a probe.
 type RecordBundle struct {
 	XMLName               xml.Name               `xml:"RecordEnvelope"`
+	UsageRecords          []JobUsageRecord       `xml:"UsageRecord,omitempty"`
 	JobUsageRecords       []JobUsageRecord       `xml:"JobUsageRecord,omitempty"`
 	StorageElements       []StorageElement       `xml:"StorageElement,omitempty"`
 	StorageElementRecords []StorageElementRecord `xml:"StorageElementRecord,omitempty"`
 	OtherRecords          []XMLRecord            `xml:",omitempty,any"`
 }
 
+// RecordCount returns the total number of records in the bundle.
 func (b *RecordBundle) RecordCount() int {
-	return len(b.JobUsageRecords) +
+	return len(b.UsageRecords) +
+		len(b.JobUsageRecords) +
 		len(b.StorageElements) +
 		len(b.StorageElementRecords) +
 		len(b.OtherRecords)
 }
 
+// Records returns all recognized records. Records that did not match
+// a known type (i.e. those that are in OtherRecords) are not included!
 func (b *RecordBundle) Records() []Record {
 	recs := make([]Record, 0, b.RecordCount())
+	for _, r := range b.UsageRecords {
+		recs = append(recs, &r)
+	}
 	for _, r := range b.JobUsageRecords {
 		recs = append(recs, &r)
 	}
@@ -35,6 +43,8 @@ func (b *RecordBundle) Records() []Record {
 	return recs
 }
 
+// AddRecord attempts to coerce rec into a known type and add it to the
+// appropriate list. Otherwise, it is added to OtherRecords.
 func (b *RecordBundle) AddRecord(rec Record) error {
 	switch rec.(type) {
 	case *JobUsageRecord:
@@ -50,10 +60,4 @@ func (b *RecordBundle) AddRecord(rec Record) error {
 		})
 	}
 	return nil
-}
-
-// XMLRecord is a generic structure for unmarshalling unknown XML data.
-type XMLRecord struct {
-	XMLName  xml.Name
-	InnerXML string `xml:",innerxml"`
 }

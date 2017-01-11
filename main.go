@@ -13,7 +13,7 @@ import (
 
 // build parameters
 var (
-	build_ver  = "1.0.1"
+	build_ver  = "1.1.0"
 	build_date = "???"
 	build_ref  = "scratch"
 )

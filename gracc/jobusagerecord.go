@@ -121,8 +121,9 @@ func (r *resource) flatten() map[string]interface{} {
 	return rr
 }
 
+// JobUsageRecord is a flexible container for batch job accounting records.
 type JobUsageRecord struct {
-	XMLName            xml.Name       `xml:"JobUsageRecord"`
+	XMLName            xml.Name
 	RecordIdentity     recordIdentity `xml:",omitempty"`
 	JobIdentity        jobIdentity    `xml:",omitempty"`
 	UserIdentity       userIdentity   `xml:",omitempty"`
@@ -141,6 +142,7 @@ type JobUsageRecord struct {
 	raw                []byte         `xml:"-"`
 }
 
+// ParseXML attempts to unmarshal the XML in xb into a JobUsageRecord.
 func (jur *JobUsageRecord) ParseXML(xb []byte) error {
 	if err := xml.Unmarshal(xb, jur); err != nil {
 		return err

@@ -6,8 +6,9 @@ import (
 	"time"
 )
 
+// StorageElement is a flexible container for distributed storage element information.
 type StorageElement struct {
-	XMLName   xml.Name  `xml:"StorageElement"`
+	XMLName   xml.Name
 	UniqueID  string    `xml:",omitempty"`
 	Timestamp time.Time `xml:",omitempty"`
 	Origin    origin    `xml:,omitempty"`
@@ -15,6 +16,7 @@ type StorageElement struct {
 	raw       []byte    `xml:"-"`
 }
 
+// ParseXML attempts to unmarshal the XML in xb into a StorageElement.
 func (se *StorageElement) ParseXML(xb []byte) error {
 	if err := xml.Unmarshal(xb, se); err != nil {
 		return err
