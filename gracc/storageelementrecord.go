@@ -18,14 +18,13 @@ type StorageElementRecord struct {
 	FileCountLimit uint64    `xml:",omitempty"`
 	Origin         origin    `xml:,omitempty"`
 	Fields         []field   `xml:",any"`
-	raw            []byte    `xml:"-"`
+	RawXML         []byte    `xml:",innerxml"`
 }
 
 func (ser *StorageElementRecord) ParseXML(xb []byte) error {
 	if err := xml.Unmarshal(xb, ser); err != nil {
 		return err
 	}
-	ser.raw = append(ser.raw, xb...) // copy contents
 	return nil
 }
 
@@ -41,7 +40,8 @@ func (ser *StorageElementRecord) Type() string {
 
 // Raw returns the unaltered source of the record.
 func (ser *StorageElementRecord) Raw() []byte {
-	return ser.raw
+	s := "<" + ser.XMLName.Local + ">" + string(ser.RawXML) + "</" + ser.XMLName.Local + ">"
+	return []byte(s)
 }
 
 // ToJSON returns a JSON encoding of the Record, with certain elements

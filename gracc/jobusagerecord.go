@@ -139,7 +139,7 @@ type JobUsageRecord struct {
 	VolumeResource     []resource     `xml:",omitempty"`
 	Origin             origin         `xml:",omitempty"`
 	Fields             []field        `xml:",any"`
-	raw                []byte         `xml:"-"`
+	RawXML             []byte         `xml:",innerxml"`
 }
 
 // ParseXML attempts to unmarshal the XML in xb into a JobUsageRecord.
@@ -147,7 +147,6 @@ func (jur *JobUsageRecord) ParseXML(xb []byte) error {
 	if err := xml.Unmarshal(xb, jur); err != nil {
 		return err
 	}
-	jur.raw = append(jur.raw, xb...) // copy contents
 	return nil
 }
 
@@ -163,7 +162,8 @@ func (jur *JobUsageRecord) Type() string {
 
 // Raw returns the unaltered source of the record.
 func (jur *JobUsageRecord) Raw() []byte {
-	return jur.raw
+	s := "<" + jur.XMLName.Local + ">" + string(jur.RawXML) + "</" + jur.XMLName.Local + ">"
+	return []byte(s)
 }
 
 // ToJSON returns a JSON encoding of the Record, with certain elements
