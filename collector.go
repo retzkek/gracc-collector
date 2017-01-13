@@ -350,7 +350,7 @@ func (g *GraccCollector) sendBundle(bun *gracc.RecordBundle) error {
 	}
 
 	npub := 0
-	for _, rec := range bun.Records() {
+	for rec := range bun.Records() {
 		g.Events <- GOT_RECORD
 		npub += 1
 		if err := w.PublishRecord(rec); err != nil {

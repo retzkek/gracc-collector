@@ -26,19 +26,20 @@ func (b *RecordBundle) RecordCount() int {
 
 // Records returns all recognized records. Records that did not match
 // a known type (i.e. those that are in OtherRecords) are not included!
-func (b *RecordBundle) Records() []Record {
-	recs := make([]Record, 0, b.RecordCount())
-	for _, r := range b.UsageRecords {
-		recs = append(recs, &r)
+func (b *RecordBundle) Records() chan Record {
+	recs := make(chan Record, b.RecordCount())
+	defer close(recs)
+	for i, _ := range b.UsageRecords {
+		recs <- &b.UsageRecords[i]
 	}
-	for _, r := range b.JobUsageRecords {
-		recs = append(recs, &r)
+	for i, _ := range b.JobUsageRecords {
+		recs <- &b.JobUsageRecords[i]
 	}
-	for _, r := range b.StorageElements {
-		recs = append(recs, &r)
+	for i, _ := range b.StorageElements {
+		recs <- &b.StorageElements[i]
 	}
-	for _, r := range b.StorageElementRecords {
-		recs = append(recs, &r)
+	for i, _ := range b.StorageElementRecords {
+		recs <- &b.StorageElementRecords[i]
 	}
 	return recs
 }
