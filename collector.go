@@ -217,6 +217,7 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 		return
 	}
 	updateLogger.WithFields(log.Fields{
+		"UsageRecord":          len(bun.UsageRecords),
 		"JobUsageRecord":       len(bun.JobUsageRecords),
 		"StorageElement":       len(bun.StorageElements),
 		"StorageElementRecord": len(bun.StorageElementRecords),
