@@ -1,4 +1,4 @@
-.PHONY: help scratch run test rpm docker with-docker docker-setup docker-baseimage docker-build docker-rpmtest docker-clean clean
+.PHONY: help scratch run test rpm docker docker-scratch with-docker docker-setup docker-baseimage docker-build docker-rpmtest docker-clean clean
 
 gracc-collector: *.go
 	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S` -X main.build_ref=RELEASE" -o gracc-collector
@@ -9,7 +9,8 @@ help:
 	 @echo  '  run             - build temporary exectutable and run it'
 	 @echo  '  test            - build and run tests via "go test"'
 	 @echo  '  rpm             - build RPM from HEAD'
-	 @echo  '  docker          - build minimal deployable docker image'
+	 @echo  '  docker          - build deployable centos-based docker image'
+	 @echo  '  docker-scratch  - build minimal deployable docker image'
 	 @echo  '  with-docker     - build & test in docker image.'
 	 @echo  '                    if successful, saves exectuable and RPM in targets/'
 	 @echo  ''
@@ -35,37 +36,40 @@ rpm:
 	rpmbuild -ba gracc-collector.spec
 
 docker:
+	docker build -t opensciencegrid/gracc-collector .
+
+docker-scratch:
 	CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S` -X main.build_ref=RELEASE -w" -o gracc-collector
-	docker build -f Dockerfile.deploy -t opensciencegrid/gracc-collector .
+	docker build -t opensciencegrid/gracc-collector:scratch .
 
 with-docker: | docker-setup docker-build docker-rpmtest docker-clean
 
 docker-setup:
-	docker network create gracc
-	docker run -d --network gracc --name rabbit rabbitmq
+	docker network create graccbuild
+	docker run -d --network graccbuild --name graccbuild-rabbit rabbitmq
 
 docker-baseimage:
 	docker build -f Dockerfile.golang.centos7 -t local/golang:centos7 .
 
 docker-build: docker-baseimage
-	docker build --no-cache -t opensciencegrid/gracc-collector-test .
-	docker run -it --network gracc --name gracc -e GRACC_AMQP_HOST=rabbit opensciencegrid/gracc-collector-test
+	docker build -f Dockerfile.build --no-cache -t opensciencegrid/gracc-collector-test .
+	docker run -it --network graccbuild --name graccbuild -e GRACC_AMQP_HOST=graccbuild-rabbit opensciencegrid/gracc-collector-test
 	mkdir -p target
-	docker cp gracc:/root/rpmbuild/RPMS/ ./target/
-	docker cp gracc:/root/rpmbuild/BUILD/gracc-collector/gracc-collector ./target/
+	docker cp graccbuild:/root/rpmbuild/RPMS/ ./target/
+	docker cp graccbuild:/root/rpmbuild/BUILD/gracc-collector/gracc-collector ./target/
 
 docker-rpmtest:
 	docker build --no-cache -f Dockerfile.rpmtest -t opensciencegrid/gracc-rpmtest .
-	docker run --privileged -d --network gracc --name gracc-rpm -v /sys/fs/cgroup:/sys/fs/cgroup:ro -p 8080:8080 opensciencegrid/gracc-rpmtest
+	docker run --privileged -d --network graccbuild --name graccbuild-rpmtest -v /sys/fs/cgroup:/sys/fs/cgroup:ro -p 8080:8080 opensciencegrid/gracc-rpmtest
 	sleep 5
-	-docker exec gracc-rpm /usr/bin/systemctl status gracc-collector
-	-curl -XPOST -i 'localhost:8080/gratia-servlets/rmi?command=update&from=localhost&bundlesize=14' --data-urlencode arg1@test.bundle
-	-docker exec gracc-rpm cat /var/log/gracc/gracc-collector.log
-	docker stop gracc-rpm
+	-docker exec graccbuild-rpmtest /usr/bin/systemctl status gracc-collector
+	-curl -XPOST -i 'localhost:8080/gratia-servlets/rmi?command=update&from=localhost&bundlesize=15' --data-urlencode arg1@test.bundle
+	-docker exec graccbuild-rpmtest cat /var/log/gracc/gracc-collector.log
+	docker stop graccbuild-rpmtest
 
 docker-clean:
-	-docker rm -f rabbit gracc gracc-rpm
-	-docker network rm gracc
+	-docker rm -f graccbuild-rabbit graccbuild graccbuild-rpmtest
+	-docker network rm graccbuild
 
 clean:
 	rm -f gracc-collector gracc-collector.scratch gracc.run

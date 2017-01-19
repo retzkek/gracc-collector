@@ -6,20 +6,21 @@ import (
 	"time"
 )
 
+// StorageElement is a flexible container for distributed storage element information.
 type StorageElement struct {
-	XMLName   xml.Name  `xml:"StorageElement"`
+	XMLName   xml.Name
 	UniqueID  string    `xml:",omitempty"`
 	Timestamp time.Time `xml:",omitempty"`
 	Origin    origin    `xml:,omitempty"`
 	Fields    []field   `xml:",any"`
-	raw       []byte    `xml:"-"`
+	RawXML    []byte    `xml:",innerxml"`
 }
 
+// ParseXML attempts to unmarshal the XML in xb into a StorageElement.
 func (se *StorageElement) ParseXML(xb []byte) error {
 	if err := xml.Unmarshal(xb, se); err != nil {
 		return err
 	}
-	se.raw = append(se.raw, xb...) // copy contents
 	return nil
 }
 
@@ -28,9 +29,15 @@ func (se *StorageElement) Id() string {
 	return se.UniqueID
 }
 
+// Type returns the type of the record.
+func (se *StorageElement) Type() string {
+	return se.XMLName.Local
+}
+
 // Raw returns the unaltered source of the record.
 func (se *StorageElement) Raw() []byte {
-	return se.raw
+	s := "<" + se.XMLName.Local + ">" + string(se.RawXML) + "</" + se.XMLName.Local + ">"
+	return []byte(s)
 }
 
 // ToJSON returns a JSON encoding of the Record, with certain elements

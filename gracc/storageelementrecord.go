@@ -6,8 +6,9 @@ import (
 	"time"
 )
 
+// StorageElementRecord is a flexible container for storage element usage information.
 type StorageElementRecord struct {
-	XMLName        xml.Name  `xml:"StorageElementRecord"`
+	XMLName        xml.Name
 	UniqueID       string    `xml:",omitempty"`
 	Timestamp      time.Time `xml:",omitempty"`
 	TotalSpace     uint64    `xml:",omitempty"`
@@ -17,14 +18,13 @@ type StorageElementRecord struct {
 	FileCountLimit uint64    `xml:",omitempty"`
 	Origin         origin    `xml:,omitempty"`
 	Fields         []field   `xml:",any"`
-	raw            []byte    `xml:"-"`
+	RawXML         []byte    `xml:",innerxml"`
 }
 
 func (ser *StorageElementRecord) ParseXML(xb []byte) error {
 	if err := xml.Unmarshal(xb, ser); err != nil {
 		return err
 	}
-	ser.raw = append(ser.raw, xb...) // copy contents
 	return nil
 }
 
@@ -33,9 +33,15 @@ func (ser *StorageElementRecord) Id() string {
 	return ser.UniqueID
 }
 
+// Type returns the type of the record.
+func (ser *StorageElementRecord) Type() string {
+	return ser.XMLName.Local
+}
+
 // Raw returns the unaltered source of the record.
 func (ser *StorageElementRecord) Raw() []byte {
-	return ser.raw
+	s := "<" + ser.XMLName.Local + ">" + string(ser.RawXML) + "</" + ser.XMLName.Local + ">"
+	return []byte(s)
 }
 
 // ToJSON returns a JSON encoding of the Record, with certain elements
