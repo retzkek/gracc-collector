@@ -31,6 +31,7 @@ func DefaultConfig() *CollectorConfig {
 		AMQP: AMQPConfig{
 			Host:         "localhost",
 			Port:         "5672",
+			Scheme:       "amqp",
 			Format:       "json",
 			User:         "guest",
 			Password:     "guest",

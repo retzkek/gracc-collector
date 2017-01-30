@@ -14,6 +14,7 @@ import (
 type AMQPConfig struct {
 	Host          string        `env:"HOST"`
 	Port          string        `env:"PORT"`
+	Scheme        string        `env:"SCHEME"`
 	Vhost         string        `env:"VHOST"`
 	User          string        `env:"USER"`
 	Password      string        `env:"PASSWORD"`
@@ -29,6 +30,9 @@ type AMQPConfig struct {
 }
 
 func (c *AMQPConfig) Validate() error {
+	if c.Scheme == "" {
+		c.Scheme = "amqp"
+	}
 	var err error
 	c.RetryDuration, err = time.ParseDuration(c.Retry)
 	return err
@@ -44,7 +48,7 @@ type AMQPOutput struct {
 func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	var a = &AMQPOutput{
 		Config: conf,
-		URI: "amqp://" + conf.User + ":" + conf.Password + "@" +
+		URI: conf.Scheme + "://" + conf.User + ":" + conf.Password + "@" +
 			conf.Host + ":" + conf.Port + "/" + conf.Vhost,
 	}
 	if err := a.setup(); err != nil {

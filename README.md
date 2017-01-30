@@ -23,6 +23,7 @@ below in parentheses. Environment variables override file settings.
     loglevel = "debug"    # log level [debug|info|warn|error|fatal|panic] (GRACC_LOGLEVEL)
     
     [AMQP]
+    scheme = "amqp"       # AMQP URI scheme [amqp|amqps] (GRACC_AMQP_SCHEME)
     host = "localhost"    # AMQP broker (GRACC_AMQP_HOST)
     port = "5672"         # (GRACC_AMQP_PORT)
     vhost = ""            # (GRACC_AMQP_VHOST)
@@ -55,6 +56,10 @@ See `sample/gracc.logrotate` for a sample logrotate configuration. Copy the file
 appropriate changes) to `/etc/logrotate.d/gracc`.
 
 # Release Notes
+
+### v1.1.1
+
+Add configurable AMQP scheme to support TLS connections to broker.
 
 ### v1.1.0
 
