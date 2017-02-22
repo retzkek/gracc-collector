@@ -38,9 +38,11 @@ below in parentheses. Environment variables override file settings.
 
 # Usage
 
-    gracc-collector -c <config file> -l <log file>
+    gracc-collector [-c <config file>] [-l <log file>] [-pprof on|<address:port>]
 
-Where `<log file>` can be "stdout", "stderr", or a file name.
+Where `<log file>` can be "stdout", "stderr", or a file name; default is "stderr".
+`-pprof on` will expose [pprof](https://blog.golang.org/profiling-go-programs) on the main http server at `/debug/pprof/`. 
+`-pprof <address:port>` will expose it on a separate http server as specified, also at `/debug/pprof/`.
 
 See `sample/gracc.service` for a sample systemd unit configuration. Copy the file (with 
 appropriate changes) to `/usr/lib/systemd/system/` then use standard systemd commands to

@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"net/http"
+	"net/http/pprof"
 	"os"
 	"os/signal"
 	"syscall"
@@ -22,11 +23,13 @@ var (
 var (
 	configFile string
 	logFile    string
+	pprofOpt   string
 )
 
 func init() {
 	flag.StringVar(&configFile, "c", "", "config file")
 	flag.StringVar(&logFile, "l", "stderr", "log file: stdout, stderr, or file name")
+	flag.StringVar(&pprofOpt, "pprof", "", "enable pprof: \"on\" to serve on main collector address at /debug/pprof, or provide address:port. Disabled if not set.")
 }
 
 func main() {
@@ -91,10 +94,26 @@ func main() {
 		"address": config.Address,
 		"port":    config.Port,
 	}).Info("starting HTTP server")
-	http.Handle("/gratia-servlets/rmi", g)
-	http.HandleFunc("/stats", g.ServeStats)
-	http.Handle("/metrics", prometheus.Handler())
-	go http.ListenAndServe(config.Address+":"+config.Port, nil)
+	// We don't use the DefaultServeMux since pprof registers handlers with it, which we may not want.
+	mux := http.NewServeMux()
+	mux.Handle("/gratia-servlets/rmi", g)
+	mux.HandleFunc("/stats", g.ServeStats)
+	mux.Handle("/metrics", prometheus.Handler())
+	go http.ListenAndServe(config.Address+":"+config.Port, mux)
+
+	if pprofOpt == "on" {
+		mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
+		mux.Handle("/debug/pprof/cmdline", http.HandlerFunc(pprof.Cmdline))
+		mux.Handle("/debug/pprof/profile", http.HandlerFunc(pprof.Profile))
+		mux.Handle("/debug/pprof/symbol", http.HandlerFunc(pprof.Symbol))
+		mux.Handle("/debug/pprof/trace", http.HandlerFunc(pprof.Trace))
+		log.Infof("pprof available at %s:%s/debug/pprof/", config.Address, config.Port)
+	} else if pprofOpt != "" {
+		// pprof by defaults registers handlers with the DefaultServeMux, so
+		// we just need to start a server using it.
+		go http.ListenAndServe(pprofOpt, nil)
+		log.Infof("pprof available at %s/debug/pprof/", pprofOpt)
+	}
 
 	// loop to catch signals
 	signals := make(chan os.Signal, 1)
