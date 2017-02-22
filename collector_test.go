@@ -21,6 +21,7 @@ var (
 		AMQP: AMQPConfig{
 			Host:         "localhost",
 			Port:         "5672",
+			Scheme:       "amqp",
 			User:         "guest",
 			Password:     "guest",
 			Format:       "json",
