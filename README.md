@@ -59,6 +59,10 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 # Release Notes
 
+### v1.1.2
+
+Fix resource leak when rabbitmq is down.
+
 ### v1.1.1
 
 Add configurable AMQP scheme to support TLS connections to broker.
