@@ -87,6 +87,7 @@ func (a *AMQPOutput) setup() error {
 	defer a.m.Unlock()
 	if a.connection != nil {
 		a.connection.Close()
+		a.connection = nil
 	}
 	log.WithFields(log.Fields{
 		"user":  a.Config.User,
@@ -104,7 +105,9 @@ func (a *AMQPOutput) setup() error {
 			"error": err,
 			"retry": a.Config.Retry,
 		}).Error("AMQP: error connecting to RabbitMQ")
+		a.m.Unlock()
 		time.Sleep(a.Config.RetryDuration)
+		a.m.Lock()
 	}
 	log.Info("AMQP: connection established")
 	// listen for close events
