@@ -42,6 +42,7 @@ type AMQPOutput struct {
 	Config     AMQPConfig
 	URI        string
 	connection *amqp.Connection
+	isBlocked  bool
 	m          sync.Mutex
 }
 
@@ -129,8 +130,14 @@ func (a *AMQPOutput) setup() error {
 		for b := range blockings {
 			if b.Active {
 				log.WithField("reason", b.Reason).Warning("AMQP: TCP blocked")
+				a.m.Lock()
+				a.isBlocked = true
+				a.m.Unlock()
 			} else {
 				log.Info("AMQP: TCP unblocked")
+				a.m.Lock()
+				a.isBlocked = false
+				a.m.Unlock()
 			}
 		}
 	}()
@@ -141,6 +148,9 @@ func (a *AMQPOutput) setup() error {
 func (a *AMQPOutput) OpenChannel() (*amqp.Channel, error) {
 	a.m.Lock()
 	defer a.m.Unlock()
+	if a.isBlocked {
+		return nil, fmt.Errorf("connection is blocked by broker")
+	}
 	if a.connection == nil {
 		return nil, fmt.Errorf("connection is not open")
 	}
