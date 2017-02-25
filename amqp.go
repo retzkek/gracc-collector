@@ -59,7 +59,7 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	ch, err := a.OpenChannel()
 	if err != nil {
 		log.Error(err)
-		return nil, fmt.Errorf("error opening channel")
+		return nil, NewAMQPError("error opening channel")
 	}
 	log.WithFields(log.Fields{
 		"name":       a.Config.Exchange,
@@ -77,7 +77,7 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 		nil); err != nil {
 		ch.Close()
 		log.Error(err)
-		return nil, fmt.Errorf("error declaring exchange")
+		return nil, NewAMQPError("error declaring exchange")
 	}
 	ch.Close()
 	return a, nil
@@ -149,10 +149,10 @@ func (a *AMQPOutput) OpenChannel() (*amqp.Channel, error) {
 	a.m.Lock()
 	defer a.m.Unlock()
 	if a.isBlocked {
-		return nil, fmt.Errorf("connection is blocked by broker")
+		return nil, NewAMQPError("connection is blocked by broker")
 	}
 	if a.connection == nil {
-		return nil, fmt.Errorf("connection is not open")
+		return nil, NewAMQPError("connection is not open")
 	}
 	return a.connection.Channel()
 }
@@ -182,12 +182,12 @@ func (a *AMQPOutput) NewWorker(bundleSize int) (*AMQPWorker, error) {
 	ch, err := a.OpenChannel()
 	if err != nil {
 		ll.Error(err)
-		return nil, fmt.Errorf("error opening channel")
+		return nil, NewAMQPError("error opening channel")
 	}
 	// put channel into confirm mode
 	if err = ch.Confirm(false); err != nil {
 		ll.Error(err)
-		return nil, fmt.Errorf("Channel could not be put into confirm mode")
+		return nil, NewAMQPError("Channel could not be put into confirm mode")
 	}
 	return &AMQPWorker{
 		Channel:  ch,
@@ -210,14 +210,14 @@ func (w *AMQPWorker) PublishRecord(rec gracc.Record) error {
 	select {
 	case f := <-w.flow:
 		if f {
-			return fmt.Errorf("under flow control")
+			return NewAMQPError("under flow control")
 		}
 	default:
 	}
 	// publish record
 	pub := w.makePublishing(rec)
 	if pub == nil {
-		return fmt.Errorf("error making AMQP publishing from Record")
+		return NewAMQPError("error making AMQP publishing from Record")
 	}
 	ll.WithFields(log.Fields{
 		"exchange":   w.Config.Exchange,
@@ -231,7 +231,7 @@ func (w *AMQPWorker) PublishRecord(rec gracc.Record) error {
 		false,             // immediate
 		*pub); err != nil {
 		ll.Error(err)
-		return fmt.Errorf("error publishing to channel")
+		return NewAMQPError("error publishing to channel")
 	}
 	w.lastTag++
 	ll.WithFields(log.Fields{
@@ -251,7 +251,8 @@ func (w *AMQPWorker) Wait(timeout time.Duration) error {
 		"where": "AMQPWorker.Wait",
 	})
 	if w.lastTag < 1 {
-		return fmt.Errorf("no records were sent")
+		ll.Warning("no records were sent")
+		return nil
 	}
 	var tc <-chan time.Time
 	if timeout > 0 {
@@ -267,7 +268,7 @@ WaitLoop:
 			ll.WithFields(log.Fields{
 				"timeout": timeout.String(),
 			}).Warning("timed out while waiting for confirms")
-			return fmt.Errorf("timed out while waiting for confirms")
+			return NewAMQPError("timed out while waiting for confirms")
 		case c := <-w.closing:
 			ll.WithFields(log.Fields{
 				"code":             c.Code,
@@ -275,7 +276,7 @@ WaitLoop:
 				"server-initiated": c.Server,
 				"can-recover":      c.Recover,
 			}).Error("channel closed")
-			return fmt.Errorf("channel closed while waiting for confirms")
+			return NewAMQPError("channel closed while waiting for confirms")
 		case ret := <-w.returns:
 			ll.WithFields(log.Fields{
 				"code":   ret.ReplyCode,
@@ -296,10 +297,10 @@ WaitLoop:
 		}
 	}
 	if returns > 0 {
-		return fmt.Errorf("%d records were returned", returns)
+		return NewAMQPError(fmt.Sprintf("%d records were returned", returns))
 	}
 	if nacks > 0 {
-		return fmt.Errorf("%d records were not successfully sent", nacks)
+		return NewAMQPError(fmt.Sprintf("%d records were not successfully sent", nacks))
 	}
 	log.Debug("all records sent successfully")
 	return nil
