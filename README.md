@@ -59,6 +59,14 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 # Release Notes
 
+### v1.1.3
+
+* Better handling of AMQP connection blocking: If the connection is blocked 
+  for a long time, existing HTTP connections will time out and return an error, 
+  rather than staying open indefinitely. New HTTP connections will immediately 
+  return an error.
+* Improved error handling and HTTP responses.
+
 ### v1.1.2
 
 Fix resource leak when rabbitmq is down.
