@@ -99,7 +99,13 @@ func main() {
 	mux.Handle("/gratia-servlets/rmi", g)
 	mux.HandleFunc("/stats", g.ServeStats)
 	mux.Handle("/metrics", prometheus.Handler())
-	go http.ListenAndServe(config.Address+":"+config.Port, mux)
+	srv := &http.Server{
+		Addr:         config.Address + ":" + config.Port,
+		Handler:      mux,
+		ReadTimeout:  config.TimeoutDuration,
+		WriteTimeout: config.TimeoutDuration,
+	}
+	go srv.ListenAndServe()
 
 	if pprofOpt == "on" {
 		mux.Handle("/debug/pprof/", http.HandlerFunc(pprof.Index))
