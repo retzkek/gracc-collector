@@ -45,13 +45,25 @@ docker-scratch:
 with-docker: | docker-setup docker-build docker-rpmtest docker-clean
 
 docker-setup:
+	@echo
+	@echo '################################################################################'
+	@echo '### Setting up build & test environment                                      ###'
+	@echo '################################################################################'
 	docker network create graccbuild
 	docker run -d --network graccbuild --name graccbuild-rabbit rabbitmq
+	docker run -d --network graccbuild --name graccbuild-stash \
+		-e 'GRACC_STREAM=test' -e 'GRACC_INSTANCE=test' \
+		-e 'AMQP_HOST=graccbuild-rabbit' \
+		retzkek/gracc-stash-raw:debug
 
 docker-baseimage:
 	docker build -f Dockerfile.golang.centos7 -t local/golang:centos7 .
 
 docker-build: docker-baseimage
+	@echo
+	@echo '################################################################################'
+	@echo '### Building executable and RPM                                              ###'
+	@echo '################################################################################'
 	docker build -f Dockerfile.build --no-cache -t opensciencegrid/gracc-collector-test .
 	docker run -it --network graccbuild --name graccbuild -e GRACC_AMQP_HOST=graccbuild-rabbit opensciencegrid/gracc-collector-test
 	mkdir -p target
@@ -59,16 +71,22 @@ docker-build: docker-baseimage
 	docker cp graccbuild:/root/rpmbuild/BUILD/gracc-collector/gracc-collector ./target/
 
 docker-rpmtest:
+	@echo
+	@echo '################################################################################'
+	@echo '### Performing integration tests                                             ###'
+	@echo '################################################################################'
 	docker build --no-cache -f Dockerfile.rpmtest -t opensciencegrid/gracc-rpmtest .
 	docker run --privileged -d --network graccbuild --name graccbuild-rpmtest -v /sys/fs/cgroup:/sys/fs/cgroup:ro -p 8080:8080 opensciencegrid/gracc-rpmtest
-	sleep 5
+	sleep 5 # let systemd start up
 	-docker exec graccbuild-rpmtest /usr/bin/systemctl status gracc-collector
 	-curl -XPOST -i 'localhost:8080/gratia-servlets/rmi?command=update&from=localhost&bundlesize=15' --data-urlencode arg1@test.bundle
+	sleep 5 # let records get through rabbitmq and logstash
 	-docker exec graccbuild-rpmtest cat /var/log/gracc/gracc-collector.log
+	-docker logs graccbuild-stash
 	docker stop graccbuild-rpmtest
 
 docker-clean:
-	-docker rm -f graccbuild-rabbit graccbuild graccbuild-rpmtest
+	-docker rm -f graccbuild-rabbit graccbuild-stash graccbuild graccbuild-rpmtest
 	-docker network rm graccbuild
 
 clean:

@@ -25,7 +25,7 @@ var (
 			User:         "guest",
 			Password:     "guest",
 			Format:       "json",
-			Exchange:     "gracc.test.raw",
+			Exchange:     "gracc.test",
 			ExchangeType: "fanout",
 			Durable:      false,
 			AutoDelete:   true,
