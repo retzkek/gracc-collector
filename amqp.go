@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -12,21 +13,23 @@ import (
 )
 
 type AMQPConfig struct {
-	Host          string        `env:"HOST"`
-	Port          string        `env:"PORT"`
-	Scheme        string        `env:"SCHEME"`
-	Vhost         string        `env:"VHOST"`
-	User          string        `env:"USER"`
-	Password      string        `env:"PASSWORD"`
-	Format        string        `env:"FORMAT"`
-	Exchange      string        `env:"EXCHANGE"`
-	ExchangeType  string        `env:"EXCHANGETYPE"`
-	Durable       bool          `env:"DURABLE"`
-	AutoDelete    bool          `env:"AUTODELETE"`
-	Internal      bool          `env:"INTERNAL"`
-	RoutingKey    string        `env:"ROUTINGKEY"`
-	Retry         string        `env:"RETRY"`
-	RetryDuration time.Duration `env:"-"`
+	Host             string        `env:"HOST"`
+	Port             string        `env:"PORT"`
+	Scheme           string        `env:"SCHEME"`
+	Vhost            string        `env:"VHOST"`
+	User             string        `env:"USER"`
+	Password         string        `env:"PASSWORD"`
+	Format           string        `env:"FORMAT"`
+	Exchange         string        `env:"EXCHANGE"`
+	ExchangeType     string        `env:"EXCHANGETYPE"`
+	Durable          bool          `env:"DURABLE"`
+	AutoDelete       bool          `env:"AUTODELETE"`
+	Internal         bool          `env:"INTERNAL"`
+	RoutingKey       string        `env:"ROUTINGKEY"`
+	Retry            string        `env:"RETRY"`
+	RetryDuration    time.Duration `env:"-"`
+	MaxRetry         string        `env:"MAXRETRY"`
+	MaxRetryDuration time.Duration `env:"-"`
 }
 
 func (c *AMQPConfig) Validate() error {
@@ -35,6 +38,10 @@ func (c *AMQPConfig) Validate() error {
 	}
 	var err error
 	c.RetryDuration, err = time.ParseDuration(c.Retry)
+	if err != nil {
+		return err
+	}
+	c.MaxRetryDuration, err = time.ParseDuration(c.MaxRetry)
 	return err
 }
 
@@ -83,6 +90,17 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	return a, nil
 }
 
+// backoff computes the next backoff duration, using "Decorrelated Jitter" method.
+// https://www.awsarchitectureblog.com/2015/03/backoff.html
+func backoff(last time.Duration, base time.Duration, max time.Duration) time.Duration {
+	var sleep time.Duration
+	sleep = base + time.Duration(rand.Int63n(int64(last)*3-int64(base)))
+	if sleep > max {
+		return max
+	}
+	return sleep
+}
+
 func (a *AMQPOutput) setup() error {
 	a.m.Lock()
 	defer a.m.Unlock()
@@ -101,14 +119,16 @@ func (a *AMQPOutput) setup() error {
 		a.connection, err = amqp.Dial(a.URI)
 		return err
 	}
+	sleep := a.Config.RetryDuration
 	for err = connect(); err != nil; err = connect() {
 		log.WithFields(log.Fields{
 			"error": err,
-			"retry": a.Config.Retry,
+			"retry": sleep.String(),
 		}).Error("AMQP: error connecting to RabbitMQ")
 		a.m.Unlock()
-		time.Sleep(a.Config.RetryDuration)
+		time.Sleep(sleep)
 		a.m.Lock()
+		sleep = backoff(sleep, a.Config.RetryDuration, a.Config.MaxRetryDuration)
 	}
 	log.Info("AMQP: connection established")
 	// listen for close events
