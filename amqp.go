@@ -39,10 +39,13 @@ func (c *AMQPConfig) Validate() error {
 	var err error
 	c.RetryDuration, err = time.ParseDuration(c.Retry)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing Retry: %s", err)
 	}
 	c.MaxRetryDuration, err = time.ParseDuration(c.MaxRetry)
-	return err
+	if err != nil {
+		return fmt.Errorf("error parsing MaxRetry: %s", err)
+	}
+	return nil
 }
 
 type AMQPOutput struct {
