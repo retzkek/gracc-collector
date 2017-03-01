@@ -1,5 +1,5 @@
 Name:           gracc-collector
-Version:        1.1.2
+Version:        1.1.3
 Release:        1%{?dist}
 Summary:        Gratia-compatible collector for grid accounting records
 License:        MIT
@@ -67,6 +67,9 @@ getent passwd gracc >/dev/null || \
 exit 0
 
 %changelog
+* Sat Feb 25 2017 Kevin Retzke <kretzke@fnal.gov> - 1.1.3-1
+- Package v1.1.3. Better handle AMQP blocked connections.
+
 * Wed Feb 22 2017 Kevin Retzke <kretzke@fnal.gov> - 1.1.2-1
 - Package v1.1.2. Fix resource leak.
 

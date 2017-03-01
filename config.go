@@ -41,10 +41,14 @@ func DefaultConfig() *CollectorConfig {
 			AutoDelete:   true,
 			Internal:     false,
 			RoutingKey:   "",
-			Retry:        "10s",
+			Retry:        "1s",
+			MaxRetry:     "1h",
 		},
 		StartBufferSize: 4096,
 		MaxBufferSize:   512 * 1024,
+	}
+	if err := conf.Validate(); err != nil {
+		log.Fatalf("Error in default config: %s", err)
 	}
 	return &conf
 }
@@ -55,7 +59,7 @@ func (c *CollectorConfig) Validate() error {
 	var err error
 	c.TimeoutDuration, err = time.ParseDuration(c.Timeout)
 	if err != nil {
-		return err
+		return fmt.Errorf("error parsing Timeout: %s", err)
 	}
 	return c.AMQP.Validate()
 }

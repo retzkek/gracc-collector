@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/xml"
 	"fmt"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -12,21 +13,23 @@ import (
 )
 
 type AMQPConfig struct {
-	Host          string        `env:"HOST"`
-	Port          string        `env:"PORT"`
-	Scheme        string        `env:"SCHEME"`
-	Vhost         string        `env:"VHOST"`
-	User          string        `env:"USER"`
-	Password      string        `env:"PASSWORD"`
-	Format        string        `env:"FORMAT"`
-	Exchange      string        `env:"EXCHANGE"`
-	ExchangeType  string        `env:"EXCHANGETYPE"`
-	Durable       bool          `env:"DURABLE"`
-	AutoDelete    bool          `env:"AUTODELETE"`
-	Internal      bool          `env:"INTERNAL"`
-	RoutingKey    string        `env:"ROUTINGKEY"`
-	Retry         string        `env:"RETRY"`
-	RetryDuration time.Duration `env:"-"`
+	Host             string        `env:"HOST"`
+	Port             string        `env:"PORT"`
+	Scheme           string        `env:"SCHEME"`
+	Vhost            string        `env:"VHOST"`
+	User             string        `env:"USER"`
+	Password         string        `env:"PASSWORD"`
+	Format           string        `env:"FORMAT"`
+	Exchange         string        `env:"EXCHANGE"`
+	ExchangeType     string        `env:"EXCHANGETYPE"`
+	Durable          bool          `env:"DURABLE"`
+	AutoDelete       bool          `env:"AUTODELETE"`
+	Internal         bool          `env:"INTERNAL"`
+	RoutingKey       string        `env:"ROUTINGKEY"`
+	Retry            string        `env:"RETRY"`
+	RetryDuration    time.Duration `env:"-"`
+	MaxRetry         string        `env:"MAXRETRY"`
+	MaxRetryDuration time.Duration `env:"-"`
 }
 
 func (c *AMQPConfig) Validate() error {
@@ -35,13 +38,21 @@ func (c *AMQPConfig) Validate() error {
 	}
 	var err error
 	c.RetryDuration, err = time.ParseDuration(c.Retry)
-	return err
+	if err != nil {
+		return fmt.Errorf("error parsing Retry: %s", err)
+	}
+	c.MaxRetryDuration, err = time.ParseDuration(c.MaxRetry)
+	if err != nil {
+		return fmt.Errorf("error parsing MaxRetry: %s", err)
+	}
+	return nil
 }
 
 type AMQPOutput struct {
 	Config     AMQPConfig
 	URI        string
 	connection *amqp.Connection
+	isBlocked  bool
 	m          sync.Mutex
 }
 
@@ -58,7 +69,7 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 	ch, err := a.OpenChannel()
 	if err != nil {
 		log.Error(err)
-		return nil, fmt.Errorf("error opening channel")
+		return nil, NewAMQPError("error opening channel")
 	}
 	log.WithFields(log.Fields{
 		"name":       a.Config.Exchange,
@@ -76,10 +87,21 @@ func InitAMQP(conf AMQPConfig) (*AMQPOutput, error) {
 		nil); err != nil {
 		ch.Close()
 		log.Error(err)
-		return nil, fmt.Errorf("error declaring exchange")
+		return nil, NewAMQPError("error declaring exchange")
 	}
 	ch.Close()
 	return a, nil
+}
+
+// backoff computes the next backoff duration, using "Decorrelated Jitter" method.
+// https://www.awsarchitectureblog.com/2015/03/backoff.html
+func backoff(last time.Duration, base time.Duration, max time.Duration) time.Duration {
+	var sleep time.Duration
+	sleep = base + time.Duration(rand.Int63n(int64(last)*3-int64(base)))
+	if sleep > max {
+		return max
+	}
+	return sleep
 }
 
 func (a *AMQPOutput) setup() error {
@@ -100,14 +122,16 @@ func (a *AMQPOutput) setup() error {
 		a.connection, err = amqp.Dial(a.URI)
 		return err
 	}
+	sleep := a.Config.RetryDuration
 	for err = connect(); err != nil; err = connect() {
 		log.WithFields(log.Fields{
 			"error": err,
-			"retry": a.Config.Retry,
+			"retry": sleep.String(),
 		}).Error("AMQP: error connecting to RabbitMQ")
 		a.m.Unlock()
-		time.Sleep(a.Config.RetryDuration)
+		time.Sleep(sleep)
 		a.m.Lock()
+		sleep = backoff(sleep, a.Config.RetryDuration, a.Config.MaxRetryDuration)
 	}
 	log.Info("AMQP: connection established")
 	// listen for close events
@@ -129,8 +153,14 @@ func (a *AMQPOutput) setup() error {
 		for b := range blockings {
 			if b.Active {
 				log.WithField("reason", b.Reason).Warning("AMQP: TCP blocked")
+				a.m.Lock()
+				a.isBlocked = true
+				a.m.Unlock()
 			} else {
 				log.Info("AMQP: TCP unblocked")
+				a.m.Lock()
+				a.isBlocked = false
+				a.m.Unlock()
 			}
 		}
 	}()
@@ -141,8 +171,11 @@ func (a *AMQPOutput) setup() error {
 func (a *AMQPOutput) OpenChannel() (*amqp.Channel, error) {
 	a.m.Lock()
 	defer a.m.Unlock()
+	if a.isBlocked {
+		return nil, NewAMQPError("connection is blocked by broker")
+	}
 	if a.connection == nil {
-		return nil, fmt.Errorf("connection is not open")
+		return nil, NewAMQPError("connection is not open")
 	}
 	return a.connection.Channel()
 }
@@ -157,6 +190,7 @@ type AMQPWorker struct {
 	closing  chan *amqp.Error
 	returns  chan amqp.Return
 	flow     chan bool
+	blocking chan amqp.Blocking
 	lastTag  uint64
 }
 
@@ -171,12 +205,12 @@ func (a *AMQPOutput) NewWorker(bundleSize int) (*AMQPWorker, error) {
 	ch, err := a.OpenChannel()
 	if err != nil {
 		ll.Error(err)
-		return nil, fmt.Errorf("error opening channel")
+		return nil, NewAMQPError("error opening channel")
 	}
 	// put channel into confirm mode
 	if err = ch.Confirm(false); err != nil {
 		ll.Error(err)
-		return nil, fmt.Errorf("Channel could not be put into confirm mode")
+		return nil, NewAMQPError("Channel could not be put into confirm mode")
 	}
 	return &AMQPWorker{
 		Channel:  ch,
@@ -185,6 +219,7 @@ func (a *AMQPOutput) NewWorker(bundleSize int) (*AMQPWorker, error) {
 		closing:  ch.NotifyClose(make(chan *amqp.Error, 1)),
 		returns:  ch.NotifyReturn(make(chan amqp.Return, bundleSize)),
 		flow:     ch.NotifyFlow(make(chan bool)),
+		blocking: a.connection.NotifyBlocked(make(chan amqp.Blocking)),
 	}, nil
 }
 
@@ -198,14 +233,14 @@ func (w *AMQPWorker) PublishRecord(rec gracc.Record) error {
 	select {
 	case f := <-w.flow:
 		if f {
-			return fmt.Errorf("under flow control")
+			return NewAMQPError("under flow control")
 		}
 	default:
 	}
 	// publish record
 	pub := w.makePublishing(rec)
 	if pub == nil {
-		return fmt.Errorf("error making AMQP publishing from Record")
+		return NewAMQPError("error making AMQP publishing from Record")
 	}
 	ll.WithFields(log.Fields{
 		"exchange":   w.Config.Exchange,
@@ -219,7 +254,7 @@ func (w *AMQPWorker) PublishRecord(rec gracc.Record) error {
 		false,             // immediate
 		*pub); err != nil {
 		ll.Error(err)
-		return fmt.Errorf("error publishing to channel")
+		return NewAMQPError("error publishing to channel")
 	}
 	w.lastTag++
 	ll.WithFields(log.Fields{
@@ -239,7 +274,8 @@ func (w *AMQPWorker) Wait(timeout time.Duration) error {
 		"where": "AMQPWorker.Wait",
 	})
 	if w.lastTag < 1 {
-		return fmt.Errorf("no records were sent")
+		ll.Warning("no records were sent")
+		return nil
 	}
 	var tc <-chan time.Time
 	if timeout > 0 {
@@ -255,7 +291,7 @@ WaitLoop:
 			ll.WithFields(log.Fields{
 				"timeout": timeout.String(),
 			}).Warning("timed out while waiting for confirms")
-			return fmt.Errorf("timed out while waiting for confirms")
+			return NewAMQPError("timed out while waiting for confirms")
 		case c := <-w.closing:
 			ll.WithFields(log.Fields{
 				"code":             c.Code,
@@ -263,7 +299,7 @@ WaitLoop:
 				"server-initiated": c.Server,
 				"can-recover":      c.Recover,
 			}).Error("channel closed")
-			return fmt.Errorf("channel closed while waiting for confirms")
+			return NewAMQPError("channel closed while waiting for confirms")
 		case ret := <-w.returns:
 			ll.WithFields(log.Fields{
 				"code":   ret.ReplyCode,
@@ -284,10 +320,10 @@ WaitLoop:
 		}
 	}
 	if returns > 0 {
-		return fmt.Errorf("%d records were returned", returns)
+		return NewAMQPError(fmt.Sprintf("%d records were returned", returns))
 	}
 	if nacks > 0 {
-		return fmt.Errorf("%d records were not successfully sent", nacks)
+		return NewAMQPError(fmt.Sprintf("%d records were not successfully sent", nacks))
 	}
 	log.Debug("all records sent successfully")
 	return nil
@@ -297,6 +333,13 @@ WaitLoop:
 // If you want to make sure all records were recieved call Wait() first!
 func (w *AMQPWorker) Close() error {
 	log.Debug("closing AMQP worker")
+	select {
+	case b := <-w.blocking:
+		if b.Active {
+			return nil
+		}
+	default:
+	}
 	return w.Channel.Close()
 }
 

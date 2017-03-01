@@ -112,6 +112,7 @@ func (g *GraccCollector) ServeStats(w http.ResponseWriter, r *http.Request) {
 	stats := g.Stats
 	g.m.Unlock()
 	if err := enc.Encode(stats); err != nil {
+		log.WithField("err", err).Error("error encoding stats")
 		http.Error(w, "error writing stats", http.StatusInternalServerError)
 	}
 }
@@ -173,7 +174,7 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
 	if err := g.checkRequiredKeys(req, []string{"command"}); err != nil {
 		g.Events <- REQUEST_ERROR
-		g.handleError(req, err, http.StatusBadRequest)
+		g.handleError(req, err)
 		return
 	}
 	command := r.FormValue("command")
@@ -184,7 +185,7 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		g.handleMultiUpdate(req)
 	default:
 		g.Events <- REQUEST_ERROR
-		g.handleError(req, fmt.Errorf("unknown command"), http.StatusBadRequest)
+		g.handleError(req, NewRequestError("unknown command"))
 	}
 }
 
@@ -203,7 +204,7 @@ func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 func (g *GraccCollector) handleMultiUpdate(req *Request) {
 	if err := g.checkRequiredKeys(req, []string{"arg1", "from"}); err != nil {
 		g.Events <- REQUEST_ERROR
-		g.handleError(req, err, http.StatusBadRequest)
+		g.handleError(req, err)
 		return
 	}
 	updateLogger := log.WithFields(log.Fields{
@@ -212,8 +213,8 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 	var bun gracc.RecordBundle
 	if err := xml.Unmarshal([]byte(req.r.FormValue("arg1")), &bun); err != nil {
 		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", err).Error("error handling update")
-		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusBadRequest)
+		updateLogger.WithField("error", err).Error("error unmarshalling xml")
+		g.handleError(req, NewRequestError("error unmarshalling xml"))
 		return
 	}
 	updateLogger.WithFields(log.Fields{
@@ -226,7 +227,7 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 	if err := g.sendBundle(&bun); err != nil {
 		g.Events <- REQUEST_ERROR
 		updateLogger.WithField("error", err).Error("error sending update")
-		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+		g.handleError(req, err)
 		return
 	}
 	updateLogger.WithField("bundlesize", bun.RecordCount()).Info("received multiupdate")
@@ -237,7 +238,7 @@ func (g *GraccCollector) handleMultiUpdate(req *Request) {
 func (g *GraccCollector) handleUpdate(req *Request) {
 	if err := g.checkRequiredKeys(req, []string{"arg1", "from"}); err != nil {
 		g.Events <- REQUEST_ERROR
-		g.handleError(req, err, http.StatusBadRequest)
+		g.handleError(req, err)
 		return
 	}
 	updateLogger := log.WithFields(log.Fields{
@@ -250,33 +251,30 @@ func (g *GraccCollector) handleUpdate(req *Request) {
 	}
 	if err := g.checkRequiredKeys(req, []string{"bundlesize"}); err != nil {
 		g.Events <- REQUEST_ERROR
-		g.handleError(req, err, http.StatusBadRequest)
+		g.handleError(req, err)
 		return
 	}
 	bundlesize, err := strconv.Atoi(req.r.FormValue("bundlesize"))
 	if err != nil {
 		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", err).Error("error handling update")
-		g.handleError(req, fmt.Errorf("error interpreting bundlesize"), http.StatusBadRequest)
+		g.handleError(req, NewRequestError("error interpreting bundlesize"))
 		return
 	}
 	bun, err := g.processBundle(req.r.FormValue("arg1"))
 	if err != nil {
 		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", err).Error("error handling update")
-		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+		updateLogger.WithField("error", err).Error("error processing bundle")
+		g.handleError(req, err)
 		return
 	}
 	if n := bun.RecordCount(); n != bundlesize {
 		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", "bundlesize mismatch").Error("error handling update")
-		g.handleError(req, fmt.Errorf("number of records in bundle (%d) different than expected (%d)", n, bundlesize), http.StatusBadRequest)
+		g.handleError(req, NewRequestError(fmt.Sprintf("number of records in bundle (%d) different than expected (%d)", n, bundlesize)))
 		return
 	}
 	if err := g.sendBundle(bun); err != nil {
 		g.Events <- REQUEST_ERROR
-		updateLogger.WithField("error", err).Error("error sending update")
-		g.handleError(req, fmt.Errorf("error processing bundle (%s)", err), http.StatusInternalServerError)
+		g.handleError(req, err)
 		return
 	}
 	updateLogger.WithField("bundlesize", req.r.FormValue("bundlesize")).Info("received update")
@@ -286,8 +284,7 @@ func (g *GraccCollector) handleUpdate(req *Request) {
 func (g *GraccCollector) checkRequiredKeys(req *Request, keys []string) error {
 	for _, k := range keys {
 		if req.r.FormValue(k) == "" {
-			err := fmt.Sprintf("no %v", k)
-			return fmt.Errorf(err)
+			return NewRequestError(fmt.Sprintf("missing key \"%s\"", k))
 		}
 	}
 	return nil
@@ -322,14 +319,14 @@ ScannerLoop:
 					"raw":   parts["raw"],
 					"extra": parts["extra"],
 				}).Error("error processing record XML")
-				return nil, fmt.Errorf("error processing replicated record")
+				return nil, NewRecordError("error processing replicated record")
 			}
 			bun.AddRecord(rec)
 		}
 	}
 	// check for scanner errors
 	if err := bs.Err(); err != nil {
-		return nil, fmt.Errorf("error parsing bundle: %s", err)
+		return nil, NewRecordError(fmt.Sprintf("error parsing bundle: %s", err))
 	}
 	return &bun, nil
 }
@@ -340,7 +337,7 @@ func (g *GraccCollector) sendBundle(bun *gracc.RecordBundle) error {
 	w, err := g.Output.NewWorker(bun.RecordCount())
 	if err != nil {
 		log.Error(err)
-		return fmt.Errorf("error publishing bundle")
+		return err
 	}
 	defer w.Close()
 
@@ -355,32 +352,45 @@ func (g *GraccCollector) sendBundle(bun *gracc.RecordBundle) error {
 		g.Events <- GOT_RECORD
 		npub += 1
 		if err := w.PublishRecord(rec); err != nil {
-			log.Error(err)
 			g.Events <- RECORD_ERROR
 			npub -= 1
-			return fmt.Errorf("error publishing record")
+			return err
 		}
 	}
 	if npub > 0 {
 		// wait for confirms that all records were received and routed
 		if err := w.Wait(g.Config.TimeoutDuration); err != nil {
-			log.Error(err)
-			return fmt.Errorf("timeout while publishing bundle")
+			return err
 		}
 	}
 	return nil
 }
 
-func (g *GraccCollector) handleError(req *Request, err error, code int) {
-	res := fmt.Sprintf("Error: %s", err)
+func (g *GraccCollector) handleError(req *Request, err error) {
+	var msg string
+	var code int
+	switch err.(type) {
+	case AMQPError:
+		code = 503
+		msg = "Service unavailable right now"
+	case RequestError:
+		code = 400
+		msg = fmt.Sprintf("Error handling request: %s", err)
+	case RecordError:
+		code = 400
+		msg = fmt.Sprintf("Error processing record: %s", err)
+	default:
+		code = 500
+		msg = "Internal server error"
+	}
 	req.log.WithFields(log.Fields{
-		"response":      res,
+		"response":      msg,
 		"response-code": code,
 		"error":         err,
 		"response-time": time.Since(req.start).Nanoseconds(),
 	}).Info("handled request")
 	req.w.WriteHeader(code)
-	fmt.Fprint(req.w, res)
+	fmt.Fprint(req.w, msg)
 }
 
 func (g *GraccCollector) handleSuccess(req *Request) {
