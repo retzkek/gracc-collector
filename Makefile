@@ -40,7 +40,7 @@ docker:
 
 docker-scratch:
 	CGO_ENABLED=0 GOOS=linux go build -a -tags netgo -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S` -X main.build_ref=RELEASE -w" -o gracc-collector
-	docker build -t opensciencegrid/gracc-collector:scratch .
+	docker build -t opensciencegrid/gracc-collector:scratch -f Dockerfile.scratch .
 
 with-docker: | docker-setup docker-build docker-rpmtest docker-clean
 

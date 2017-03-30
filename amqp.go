@@ -190,7 +190,6 @@ type AMQPWorker struct {
 	closing  chan *amqp.Error
 	returns  chan amqp.Return
 	flow     chan bool
-	blocking chan amqp.Blocking
 	lastTag  uint64
 }
 
@@ -219,7 +218,6 @@ func (a *AMQPOutput) NewWorker(bundleSize int) (*AMQPWorker, error) {
 		closing:  ch.NotifyClose(make(chan *amqp.Error, 1)),
 		returns:  ch.NotifyReturn(make(chan amqp.Return, bundleSize)),
 		flow:     ch.NotifyFlow(make(chan bool)),
-		blocking: a.connection.NotifyBlocked(make(chan amqp.Blocking)),
 	}, nil
 }
 
@@ -333,13 +331,6 @@ WaitLoop:
 // If you want to make sure all records were recieved call Wait() first!
 func (w *AMQPWorker) Close() error {
 	log.Debug("closing AMQP worker")
-	select {
-	case b := <-w.blocking:
-		if b.Active {
-			return nil
-		}
-	default:
-	}
 	return w.Channel.Close()
 }
 

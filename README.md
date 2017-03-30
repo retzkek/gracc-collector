@@ -59,6 +59,10 @@ appropriate changes) to `/etc/logrotate.d/gracc`.
 
 # Release Notes
 
+### v1.1.4
+
+* Fix issue causing collector to never see AMQP unblock signal.
+
 ### v1.1.3
 
 * Better handling of AMQP connection blocking: If the connection is blocked 
