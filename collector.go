@@ -160,11 +160,22 @@ type Request struct {
 
 func (g *GraccCollector) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	g.Events <- GOT_REQUEST
+	var remoteAddr string
+
+	// Check for forwarded headers
+	if remote := r.Header.Get("X-Real-IP"); remote != "" {
+		remoteAddr = remote
+	} else if remote := r.Header.Get("X-Forwarded-For"); remote != "" {
+		remoteAddr = remote
+	} else {
+		remoteAddr = r.RemoteAddr
+	}
+
 	req := &Request{
 		w: w,
 		r: r,
 		log: log.WithFields(log.Fields{
-			"address":  r.RemoteAddr,
+			"address":  remoteAddr,
 			"length":   r.ContentLength,
 			"agent":    r.UserAgent(),
 			"url_path": r.URL.EscapedPath(),
