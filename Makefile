@@ -25,6 +25,11 @@ scratch: *.go
 run:
 	go build -ldflags "-X main.build_date=`date -u +%Y%m%d.%H%M%S`" -o gracc.run -race && ./gracc.run; rm -f gracc.run
 
+release:
+	sed -e "s/@BUILDDATE@/`date +%Y%m%d-%H%M`/" Dockerfile.prod > Dockerfile
+	git add Dockerfile
+	git commit -m "New build of GRACC collector on `date +%Y%m%d-%H%M`"
+
 test:
 	# test gracc library
 	cd gracc; go test
