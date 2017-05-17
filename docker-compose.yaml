@@ -14,12 +14,14 @@ services:
         - GRACC_AMQP_HOST=rabbitmq
         - GRACC_AMQP_EXCHANGE=gracc.osg.raw
         - GRACC_LOGLEVEL=debug
+        - GRACC_AMQP_DURABLE=true
+        - GRACC_AMQP_AUTODELETE=false
         ports:
         - "8080:8080"
         depends_on:
         - rabbitmq
     gracc-stash-raw:
-        image: retzkek/gracc-stash-raw:debug
+        image: opensciencegrid/gracc-stash-raw
         environment:
         - GRACC_INSTANCE=test
         - GRACC_STREAM=osg
