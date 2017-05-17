@@ -57,7 +57,35 @@ control the process.
 See `sample/gracc.logrotate` for a sample logrotate configuration. Copy the file (with
 appropriate changes) to `/etc/logrotate.d/gracc`.
 
+# Creating a Release
+
+To create a release, one must do the following:
+
+1.  Merge a commit to master updating the release notes in `README.md` and `gracc-collector.spec`.
+2.  Create a release in the `gracc-collector` GitHub repository; this will create a new release.
+3.  Head over to the OSG packaging repository and update the `gracc-collector` packaging there;
+    you will need to at least copy over the `gracc-collector.spec` and the update the git SHA1
+    associated with the release. Steps 1-3 should take 15 minutes.
+4.  Utilize the OSG build tools to do an official build of the `gracc-collector` RPM in Koji.
+    This should take 15 minutes.
+5.  Wait until the GOC synchronizes the updated `gracc-collector` RPM to the `osg-development`
+    repository.  Estimated wait time is 2 hours.
+6.  Run `make release`; this will update the local Dockerfile and perform a commit.  Run
+    `docker build .` to ensure the generated image contains the correct `gracc-collector` version.
+7.  If all looks good, push the updated Dockerfile to GitHub; this will trigger the DockerHub
+    build.
+
 # Release Notes
+
+### v1.1.6
+
+* Allow Dockerfile releases to be made via osg-development repository.
+* Add appropriate license file.
+
+### v1.1.5
+
+* Add support for X-Forwarded-For / X-Real-IP headers, for when the collector is
+  running behind a HTTP proxy
 
 ### v1.1.4
 

@@ -1,5 +1,5 @@
 Name:           gracc-collector
-Version:        1.1.5
+Version:        1.1.6
 Release:        1%{?dist}
 Summary:        Gratia-compatible collector for grid accounting records
 License:        MIT
@@ -67,6 +67,9 @@ getent passwd gracc >/dev/null || \
 exit 0
 
 %changelog
+* Wed May 17 2017 Brian Bockelman <bbockelm@cse.unl.edu> - 1.1.6-1
+- Add support for running behind nginx.
+
 * Wed Apr 05 2017 Kevin Retzke <kretzke@fnal.gov> - 1.1.5-1
 - Package v1.1.5. Reset blocked flag if RabbitMQ connection is closed.
 
