@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	log "github.com/Sirupsen/logrus"
+	"github.com/streadway/amqp"
 )
 
 var (
@@ -104,6 +105,11 @@ func startConsumer() error {
 	go func() {
 		for r := range inbox {
 			log.Infof("got record %d", r.DeliveryTag)
+			log.Debugf("DeliveryMode %d", r.DeliveryMode)
+			if r.DeliveryMode != amqp.Persistent {
+				// If we find a non-persistent record, bail immediately!
+				os.Exit(1)
+			}
 			log.Debugf("record body:\n---%s\n---\n", r.Body)
 			r.Ack(false)
 		}
