@@ -340,6 +340,7 @@ func (w *AMQPWorker) makePublishing(jur gracc.Record) *amqp.Publishing {
 		"where": "AMQPWorker.makePublishing",
 	})
 	var pub amqp.Publishing
+	pub.DeliveryMode = 2
 	switch w.Config.Format {
 	case "raw":
 		pub.ContentType = "text/xml"
