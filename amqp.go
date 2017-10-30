@@ -340,6 +340,10 @@ func (w *AMQPWorker) makePublishing(jur gracc.Record) *amqp.Publishing {
 		"where": "AMQPWorker.makePublishing",
 	})
 	var pub amqp.Publishing
+	
+	// We want Persistent delivery so that the records will survive a
+	// rabbitMQ server reboot
+	pub.DeliveryMode = amqp.Persistent
 	switch w.Config.Format {
 	case "raw":
 		pub.ContentType = "text/xml"
