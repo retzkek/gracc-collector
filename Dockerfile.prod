@@ -1,4 +1,4 @@
-FROM opensciencegrid/osg-wn:3.3-el7
+FROM opensciencegrid/osg-wn:3.4-el7
 
 LABEL name="OSG GRACC Collector"
 LABEL build-date=@BUILDDATE@
