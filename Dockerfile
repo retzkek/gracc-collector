@@ -1,7 +1,7 @@
-FROM opensciencegrid/osg-wn:3.3-el7
+FROM opensciencegrid/osg-wn:3.4-el7
 
 LABEL name="OSG GRACC Collector"
-LABEL build-date=20171102-1602
+LABEL build-date=20171102-1623
 
 # install gracc from RPM
 RUN yum -y --enablerepo=osg-development install gracc-collector && \
