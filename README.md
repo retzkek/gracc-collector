@@ -77,6 +77,10 @@ To create a release, one must do the following:
 
 # Release Notes
 
+### v1.1.7
+
+* Add persistence to the messages to last through a AMQP server reboot.
+
 ### v1.1.6
 
 * Allow Dockerfile releases to be made via osg-development repository.
