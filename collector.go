@@ -34,10 +34,11 @@ const (
 )
 
 type GraccCollector struct {
-	Config *CollectorConfig
-	Output *AMQPOutput
-	Stats  CollectorStats
-	m      sync.Mutex
+	Config      *CollectorConfig
+	AMQPOutput  *AMQPOutput
+	KafkaOutput *KafkaOutput
+	Stats       CollectorStats
+	m           sync.Mutex
 
 	Events chan Event
 
@@ -55,10 +56,20 @@ func NewCollector(conf *CollectorConfig) (*GraccCollector, error) {
 	g.Events = make(chan Event)
 	go g.LogEvents()
 
-	if o, err := InitAMQP(conf.AMQP); err != nil {
-		return nil, err
-	} else {
-		g.Output = o
+	if g.Config.AMQP.Enable {
+		if o, err := InitAMQP(conf.AMQP); err != nil {
+			return nil, err
+		} else {
+			g.AMQPOutput = o
+		}
+	}
+
+	if g.Config.Kafka.Enable {
+		if o, err := InitKafka(conf.Kafka); err != nil {
+			return nil, err
+		} else {
+			g.KafkaOutput = o
+		}
 	}
 
 	g.RecordCountDesc = prometheus.NewDesc(
@@ -342,38 +353,50 @@ ScannerLoop:
 	return &bun, nil
 }
 
-// sendBundle publishes the records in RecordBundle bun to AMQP.
+// sendBundle publishes the records in RecordBundle bun to output.
 func (g *GraccCollector) sendBundle(bun *gracc.RecordBundle) error {
-	// setup AMQP channel
-	w, err := g.Output.NewWorker(bun.RecordCount())
-	if err != nil {
-		log.Error(err)
-		return err
-	}
-	defer w.Close()
-
 	for _, r := range bun.OtherRecords {
 		g.Events <- GOT_RECORD
 		g.Events <- RECORD_ERROR
 		log.WithField("type", r.XMLName).Warning("bundle contains unrecognized record type; ignoring!")
 	}
 
-	npub := 0
-	for rec := range bun.Records() {
-		g.Events <- GOT_RECORD
-		npub += 1
-		if err := w.PublishRecord(rec); err != nil {
-			g.Events <- RECORD_ERROR
-			npub -= 1
+	if g.Config.AMQP.Enable {
+		// setup AMQP channel
+		w, err := g.AMQPOutput.NewWorker(bun.RecordCount())
+		if err != nil {
+			log.Error(err)
 			return err
 		}
-	}
-	if npub > 0 {
-		// wait for confirms that all records were received and routed
-		if err := w.Wait(g.Config.TimeoutDuration); err != nil {
-			return err
+		defer w.Close()
+
+		npub := 0
+		for rec := range bun.Records() {
+			g.Events <- GOT_RECORD
+			npub += 1
+			if err := w.PublishRecord(rec); err != nil {
+				g.Events <- RECORD_ERROR
+				npub -= 1
+				return err
+			}
+		}
+		if npub > 0 {
+			// wait for confirms that all records were received and routed
+			if err := w.Wait(g.Config.TimeoutDuration); err != nil {
+				return err
+			}
 		}
 	}
+
+	if g.Config.Kafka.Enable {
+		for rec := range bun.Records() {
+			if err := g.KafkaOutput.PublishRecord(rec); err != nil {
+				g.Events <- RECORD_ERROR
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 

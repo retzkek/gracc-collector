@@ -18,6 +18,7 @@ type CollectorConfig struct {
 	TimeoutDuration time.Duration `env:"-"`
 	LogLevel        string        `env:"GRACC_LOGLEVEL"`
 	AMQP            AMQPConfig    `env:"GRACC_AMQP_"`
+	Kafka           KafkaConfig   `env:"GRACC_KAFKA_"`
 	StartBufferSize int           `env:"GRACC_STARTBUFFERSIZE"`
 	MaxBufferSize   int           `env:"GRACC_MAXBUFFERSIZE"`
 }
@@ -29,6 +30,7 @@ func DefaultConfig() *CollectorConfig {
 		Timeout:  "60s",
 		LogLevel: "info",
 		AMQP: AMQPConfig{
+			Enable:       true,
 			Host:         "localhost",
 			Port:         "5672",
 			Scheme:       "amqp",
@@ -43,6 +45,12 @@ func DefaultConfig() *CollectorConfig {
 			RoutingKey:   "",
 			Retry:        "1s",
 			MaxRetry:     "1h",
+		},
+		Kafka: KafkaConfig{
+			Enable:  false,
+			Brokers: "localhost:9092",
+			Topic:   "gracc",
+			Format:  "json",
 		},
 		StartBufferSize: 4096,
 		MaxBufferSize:   512 * 1024,
