@@ -11,8 +11,8 @@ import (
 
 type KafkaConfig struct {
 	Enable  bool   `env:"ENABLE"`
-	Brokers string `env:"HOST"`
-	Topic   string `env:"PORT"`
+	Brokers string `env:"BROKERS"`
+	Topic   string `env:"TOPIC"`
 	Format  string `env:"FORMAT"`
 }
 
