@@ -1,5 +1,5 @@
 Name:           gracc-collector
-Version:        1.1.7
+Version:        1.2.0
 Release:        1%{?dist}
 Summary:        Gratia-compatible collector for grid accounting records
 License:        MIT
@@ -67,6 +67,9 @@ getent passwd gracc >/dev/null || \
 exit 0
 
 %changelog
+* Tue Aug 20 2019 Kevin Retzke <kretzke@fnal.gov> - 1.2.0-1
+- Add Kafka output.
+
 * Thu Nov 02 2017 Derek Weitzel <dweitzel@cse.unl.edu> - 1.1.7-1
 - Add persistence to the gracc-collector
 

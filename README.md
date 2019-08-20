@@ -2,13 +2,13 @@
 
 # Overview
 
-The gracc-collector is a "Gratia-Compatible Collector" that acts as a 
+The gracc-collector is a "Gratia-Compatible Collector" that acts as a
 transitional interface between the obsolete [Gratia](https://sourceforge.net/projects/gratia/)
 accounting collector and probes and the new GRÅCC accounting system.
 
-It listens for bundles of records (as would be sent via replication from a 
-Gratia collector or from a Gratia probe) on HTTP, processes the bundle into 
-individual usage records, and sends those to RabbitMQ or another 
+It listens for bundles of records (as would be sent via replication from a
+Gratia collector or from a Gratia probe) on HTTP, processes the bundle into
+individual usage records, and sends those to RabbitMQ or another
 AMQP 0.9.1 broker.
 
 # Configuration
@@ -21,8 +21,9 @@ below in parentheses. Environment variables override file settings.
     port = "8888"         # port to listen on (GRACC_PORT)
     timeout = "60s"       # HTTP connection timeout (GRACC_TIMEOUT)
     loglevel = "debug"    # log level [debug|info|warn|error|fatal|panic] (GRACC_LOGLEVEL)
-    
+
     [AMQP]
+	enable = true         # Enable AMQP output (GRACC_AMQP_ENABLE)
     scheme = "amqp"       # AMQP URI scheme [amqp|amqps] (GRACC_AMQP_SCHEME)
     host = "localhost"    # AMQP broker (GRACC_AMQP_HOST)
     port = "5672"         # (GRACC_AMQP_PORT)
@@ -36,15 +37,22 @@ below in parentheses. Environment variables override file settings.
     format = "raw"        # format to send record in [raw|xml|json] (GRACC_AMQP_FORMAT)
     retry = "10s"         # AMQP connection retry interval (GRACC_AMQP_RETRY)
 
+	[kafka]
+	enable = false             # Enable Kafka output (GRACC_KAFKA_ENABLE)
+	brokers = "localhost:9092" # Kafka bootstrap  broker address(es), comma-separated (GRACC_KAFKA_BROKERS)
+	topic = "gracc"            # Destination topic (GRACC_KAFKA_TOPIC)
+    format = "json"            # format to send record in [raw|xml|json] (GRACC_KAFKA_FORMAT)
+
+
 # Usage
 
     gracc-collector [-c <config file>] [-l <log file>] [-pprof on|<address:port>]
 
 Where `<log file>` can be "stdout", "stderr", or a file name; default is "stderr".
-`-pprof on` will expose [pprof](https://blog.golang.org/profiling-go-programs) on the main http server at `/debug/pprof/`. 
+`-pprof on` will expose [pprof](https://blog.golang.org/profiling-go-programs) on the main http server at `/debug/pprof/`.
 `-pprof <address:port>` will expose it on a separate http server as specified, also at `/debug/pprof/`.
 
-See `sample/gracc.service` for a sample systemd unit configuration. Copy the file (with 
+See `sample/gracc.service` for a sample systemd unit configuration. Copy the file (with
 appropriate changes) to `/usr/lib/systemd/system/` then use standard systemd commands to
 control the process.
 
@@ -77,6 +85,10 @@ To create a release, one must do the following:
 
 # Release Notes
 
+### v1.2.0
+
+* Add Kafka output.
+
 ### v1.1.7
 
 * Add persistence to the messages to last through a AMQP server reboot.
@@ -97,9 +109,9 @@ To create a release, one must do the following:
 
 ### v1.1.3
 
-* Better handling of AMQP connection blocking: If the connection is blocked 
-  for a long time, existing HTTP connections will time out and return an error, 
-  rather than staying open indefinitely. New HTTP connections will immediately 
+* Better handling of AMQP connection blocking: If the connection is blocked
+  for a long time, existing HTTP connections will time out and return an error,
+  rather than staying open indefinitely. New HTTP connections will immediately
   return an error.
 * Improved error handling and HTTP responses.
 
@@ -122,12 +134,12 @@ Accept UsageRecord (treated identically as JobUsageRecord).
 
 ### v0.4.0
 
-* Allow config options to be set by environment variable. 
+* Allow config options to be set by environment variable.
   Precedence: env var > config file > default.
 * Change timeout and AMQP.retry config options to duration strings.
   A duration string is a possibly signed sequence of decimal numbers, each with
-  optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m". 
-  Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h". 
+  optional fraction and a unit suffix, such as "300ms", "-1.5h" or "2h45m".
+  Valid time units are "ns", "us" (or "µs"), "ms", "s", "m", "h".
 
 ### v0.03.01
 
